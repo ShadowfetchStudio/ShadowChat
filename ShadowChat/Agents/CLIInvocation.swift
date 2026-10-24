@@ -12,8 +12,8 @@ enum CLIPaths {
     static let cursorAgent = "/Users/me/.local/bin/cursor-agent"
     static let cursorApp = "/Applications/Cursor.app/Contents/Resources/app/bin/cursor"
     static let git = "/usr/bin/git"
-    static let cursorGrokModel = "grok"
-    static let defaultGrokModel = "grok-4"
+    static let cursorGrokModel = "cursor-grok-4.5-high"
+    static let defaultGrokModel = "grok-4.7"
 
     static func resolveClaude() -> String {
         firstExecutable([
@@ -66,7 +66,6 @@ enum CLICommands {
         "--force",
         "--dangerously-bypass-approvals-and-sandbox",
         "--dangerously-bypass-hook-trust",
-        "--trust",
         "danger-full-access",
         "bypassPermissions"
     ]
@@ -102,7 +101,7 @@ enum CLICommands {
 
     static func codex(prompt: String, cwd: String, writable: Bool, sessionID: String?) -> CLIInvocation {
         let sandbox = writable ? "workspace-write" : "read-only"
-        var args = ["-s", sandbox, "-a", "never", "-C", cwd]
+        var args = ["--sandbox", sandbox, "-C", cwd]
         if let sessionID, !sessionID.isEmpty {
             args.append(contentsOf: ["exec", "resume", sessionID, "--json", "--skip-git-repo-check", prompt])
         } else {
@@ -118,11 +117,13 @@ enum CLICommands {
     static func cursorGrok(prompt: String, cwd: String, writable: Bool, sessionID: String?, newSessionID: String) -> CLIInvocation {
         let resolved = CLIPaths.resolveCursor()
         var args = resolved.prefix
+        _ = newSessionID
         args.append(contentsOf: [
             "-p",
             "--output-format", "stream-json",
             "--stream-partial-output",
             "--sandbox", "enabled",
+            "--trust",
             "--model", CLIPaths.cursorGrokModel,
             "--workspace", cwd
         ])
@@ -132,9 +133,6 @@ enum CLICommands {
         if let sessionID, !sessionID.isEmpty {
             args.append("--resume")
             args.append(sessionID)
-        } else {
-            args.append("--new-session-id")
-            args.append(newSessionID)
         }
         args.append(prompt)
         return CLIInvocation(executable: resolved.path, arguments: args, cwd: cwd)
@@ -154,13 +152,17 @@ enum CLICommands {
     }
 
     static func containsBannedFlag(_ arguments: [String]) -> String? {
-        for argument in arguments {
+        for (index, argument) in arguments.enumerated() {
             if bannedArguments.contains(argument) { return argument }
             let lowered = argument.lowercased()
             if lowered.contains("dangerously-skip-permissions") { return argument }
             if lowered.contains("dangerously-bypass") { return argument }
             if lowered.contains("bypasspermissions") { return argument }
             if argument.contains("danger-full-access") { return argument }
+            if argument == "-a" || argument == "--ask-for-approval" {
+                let next = index + 1 < arguments.count ? arguments[index + 1] : ""
+                if next == "never" { return "\(argument) never" }
+            }
         }
         return nil
     }

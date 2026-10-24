@@ -12,13 +12,20 @@ struct ChatWindowView: View {
     var body: some View {
         VStack(spacing: 0) {
             ClassicTitleBar(title: windowTitle)
-            menuBar
-            transcript
-            formatBar
-            composeBox
-            toolbar
+            VStack(spacing: 0) {
+                menuBar
+                transcript
+                formatBar
+                composeBox
+                toolbar
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(AIMTheme.client)
+            .padding(4)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(AIMTheme.frameBlue)
+        .ignoresSafeArea()
         .overlay(WindowConfigurator(title: windowTitle).frame(width: 0, height: 0))
         .frame(minWidth: 620, minHeight: 460)
         .preferredColorScheme(.light)
@@ -68,6 +75,7 @@ struct ChatWindowView: View {
 
     private var transcript: some View {
         TranscriptView(messages: model.messages[roomID] ?? [])
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.white)
             .overlay(BevelOverlay(raised: false))
             .padding(.horizontal, 8)

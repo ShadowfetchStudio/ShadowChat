@@ -10,15 +10,23 @@ struct BuddyListView: View {
     var body: some View {
         VStack(spacing: 0) {
             ClassicTitleBar(title: model.signedOn ? (model.screenName.isEmpty ? "Me" : model.screenName) : "Sign On")
-            if model.signedOn {
-                groupList
-            } else {
-                logoPanel
-                signOnPanel
+            VStack(spacing: 0) {
+                if model.signedOn {
+                    groupList
+                } else {
+                    logoPanel
+                    signOnPanel
+                    Spacer(minLength: 0)
+                }
+                footer
             }
-            footer
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(AIMTheme.client)
+            .padding(4)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(AIMTheme.frameBlue)
+        .ignoresSafeArea()
         .overlay(WindowConfigurator(title: "ShadowChat").frame(width: 0, height: 0))
         .frame(minWidth: 300, minHeight: 520)
         .preferredColorScheme(.light)
@@ -43,6 +51,7 @@ struct BuddyListView: View {
                 .resizable()
                 .interpolation(.high)
                 .frame(width: 132, height: 132)
+                .background(AIMTheme.logoBlue)
             Text("ShadowChat")
                 .font(AIMTheme.font(size: 20, bold: true))
                 .foregroundStyle(.white)

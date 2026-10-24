@@ -88,28 +88,46 @@ struct WindowConfigurator: NSViewRepresentable {
     var title: String
 
     func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async { configure(view.window) }
+        let view = TitlebarHider()
+        view.title = title
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async { configure(nsView.window) }
+        (nsView as? TitlebarHider)?.title = title
+        (nsView as? TitlebarHider)?.apply()
+    }
+}
+
+final class TitlebarHider: NSView {
+    var title = ""
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        apply()
     }
 
-    private func configure(_ window: NSWindow?) {
+    override func layout() {
+        super.layout()
+        apply()
+    }
+
+    func apply() {
         guard let window else { return }
         window.title = title
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.styleMask.insert(.fullSizeContentView)
+        window.titlebarSeparatorStyle = .none
         window.isMovableByWindowBackground = false
         window.backgroundColor = NSColor(calibratedRed: 0.05, green: 0.16, blue: 0.45, alpha: 1)
         window.isRestorable = false
         window.appearance = NSAppearance(named: .aqua)
-        window.standardWindowButton(.closeButton)?.isHidden = true
-        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        window.standardWindowButton(.zoomButton)?.isHidden = true
+        for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            guard let button = window.standardWindowButton(kind) else { continue }
+            button.isHidden = true
+            button.alphaValue = 0
+        }
     }
 }
 
@@ -239,6 +257,27 @@ struct SetupSheet: View {
     }
 }
 
+enum ScreenColors {
+    static func color(sender: ParticipantID, name: String) -> NSColor {
+        switch name.lowercased().replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: "") {
+        case "shadowchat":
+            return NSColor(calibratedRed: 0.15, green: 0.12, blue: 0.35, alpha: 1)
+        case "codex":
+            return ParticipantID.codex.nsColor
+        case "claude", "claudecode":
+            return ParticipantID.claudeCode.nsColor
+        case "grok", "grokbot":
+            return ParticipantID.grok.nsColor
+        case "cursor", "cursorgrok", "antigravity":
+            return ParticipantID.cursorGrok.nsColor
+        case "muse":
+            return NSColor(calibratedRed: 0.36, green: 0.16, blue: 0.55, alpha: 1)
+        default:
+            return sender.nsColor
+        }
+    }
+}
+
 enum TranscriptRenderer {
     static func render(_ messages: [ChatMessage]) -> NSAttributedString {
         let result = NSMutableAttributedString()
@@ -254,7 +293,7 @@ enum TranscriptRenderer {
                 string: message.senderName,
                 attributes: [
                     .font: nameFont,
-                    .foregroundColor: message.sender.nsColor
+                    .foregroundColor: ScreenColors.color(sender: message.sender, name: message.senderName)
                 ]
             )
             result.append(name)
