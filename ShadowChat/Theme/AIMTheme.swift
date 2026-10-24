@@ -2,25 +2,29 @@ import AppKit
 import SwiftUI
 
 enum AIMTheme {
-    static let titleTop = Color(red: 0.36, green: 0.55, blue: 0.84)
-    static let titleBottom = Color(red: 0.10, green: 0.28, blue: 0.62)
+    static let titleTop = Color(red: 0.22, green: 0.47, blue: 0.84)
+    static let titleBottom = Color(red: 0.06, green: 0.24, blue: 0.58)
     static let frameBlue = Color(red: 0.05, green: 0.16, blue: 0.45)
-    static let client = Color(red: 0.831, green: 0.816, blue: 0.784)
-    static let groupHeader = Color(red: 0.75, green: 0.74, blue: 0.71)
-    static let highlight = Color(red: 0.04, green: 0.14, blue: 0.42)
-    static let cream = Color(red: 0.992, green: 0.965, blue: 0.925)
+    static let client = Color(red: 0.835, green: 0.820, blue: 0.788)
+    static let clientPressed = Color(red: 0.765, green: 0.750, blue: 0.718)
+    static let groupHeader = Color(red: 0.755, green: 0.742, blue: 0.710)
+    static let highlight = Color(red: 0.04, green: 0.16, blue: 0.46)
+    static let cream = Color(red: 0.992, green: 0.968, blue: 0.925)
     static let wordmark = Color.white
-    static let logoBlue = Color(red: 0.00, green: 0.20, blue: 0.58)
+    static let logoBlue = Color(red: 0.02, green: 0.20, blue: 0.56)
     static let titleBlue = Color(red: 0.12, green: 0.39, blue: 0.78)
-    static let bevelDark = Color(white: 0.32)
+    static let bevelDark = Color(white: 0.30)
+    static let bevelMid = Color(white: 0.55)
     static let fieldWhite = Color.white
+    static let onlineGreen = Color(red: 0.06, green: 0.64, blue: 0.20)
+    static let installedAmber = Color(red: 0.84, green: 0.52, blue: 0.04)
 
     static func nsFont(size: CGFloat, bold: Bool = false, italic: Bool = false) -> NSFont {
         if italic && bold, let font = NSFont(name: "Verdana-BoldItalic", size: size) { return font }
         if bold, let font = NSFont(name: "Verdana-Bold", size: size) { return font }
         if italic, let font = NSFont(name: "Verdana-Italic", size: size) { return font }
         if let font = NSFont(name: "Verdana", size: size) { return font }
-        return NSFont.systemFont(ofSize: size)
+        return bold ? NSFont.boldSystemFont(ofSize: size) : NSFont.systemFont(ofSize: size)
     }
 
     static func font(size: CGFloat, bold: Bool = false) -> Font {
@@ -38,9 +42,9 @@ struct BevelOverlay: View {
             Path { path in
                 path.move(to: .zero)
                 path.addLine(to: CGPoint(x: width, y: 0))
-                path.addLine(to: CGPoint(x: max(0, width - 2), y: 2))
-                path.addLine(to: CGPoint(x: 2, y: 2))
-                path.addLine(to: CGPoint(x: 2, y: max(0, height - 2)))
+                path.addLine(to: CGPoint(x: max(0, width - 1.5), y: 1.5))
+                path.addLine(to: CGPoint(x: 1.5, y: 1.5))
+                path.addLine(to: CGPoint(x: 1.5, y: max(0, height - 1.5)))
                 path.addLine(to: CGPoint(x: 0, y: height))
                 path.closeSubpath()
             }
@@ -49,9 +53,9 @@ struct BevelOverlay: View {
                 path.move(to: CGPoint(x: width, y: 0))
                 path.addLine(to: CGPoint(x: width, y: height))
                 path.addLine(to: CGPoint(x: 0, y: height))
-                path.addLine(to: CGPoint(x: 2, y: max(0, height - 2)))
-                path.addLine(to: CGPoint(x: max(0, width - 2), y: max(0, height - 2)))
-                path.addLine(to: CGPoint(x: max(0, width - 2), y: 2))
+                path.addLine(to: CGPoint(x: 1.5, y: max(0, height - 1.5)))
+                path.addLine(to: CGPoint(x: max(0, width - 1.5), y: max(0, height - 1.5)))
+                path.addLine(to: CGPoint(x: max(0, width - 1.5), y: 1.5))
                 path.closeSubpath()
             }
             .fill(raised ? AIMTheme.bevelDark : Color.white)
@@ -62,16 +66,58 @@ struct BevelOverlay: View {
 
 struct AIMButtonStyle: ButtonStyle {
     var sunken: Bool = false
+    var compact: Bool = false
+    var chip: Bool = false
+    var fillWidth: Bool = false
 
     func makeBody(configuration: Configuration) -> some View {
         let pressed = configuration.isPressed || sunken
+        let fontSize: CGFloat = chip ? 10.5 : (compact ? 11 : 11.5)
+        let hPad: CGFloat = chip ? 4.5 : (compact ? 6 : 8)
+        let vPad: CGFloat = chip ? 2.5 : (compact ? 3 : 4)
+        let minH: CGFloat = chip ? 20 : (compact ? 22 : 24)
         configuration.label
-            .font(AIMTheme.font(size: 12))
+            .font(AIMTheme.font(size: fontSize, bold: sunken))
             .foregroundStyle(.black)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(AIMTheme.client)
+            .lineLimit(1)
+            .padding(.horizontal, hPad)
+            .padding(.vertical, vPad)
+            .frame(maxWidth: fillWidth ? .infinity : nil, minHeight: minH)
+            .background(pressed ? AIMTheme.clientPressed : AIMTheme.client)
             .overlay(BevelOverlay(raised: !pressed))
+            .fixedSize(horizontal: !fillWidth, vertical: true)
+    }
+}
+
+enum PresenceDotState {
+    case online
+    case installed
+    case offline
+}
+
+struct PresenceDot: View {
+    var state: PresenceDotState
+    var selected: Bool = false
+
+    var body: some View {
+        ZStack {
+            switch state {
+            case .online:
+                Circle()
+                    .fill(AIMTheme.onlineGreen)
+                Circle()
+                    .strokeBorder(selected ? Color.white : Color.black.opacity(0.45), lineWidth: 1)
+            case .installed:
+                Circle()
+                    .fill(AIMTheme.installedAmber)
+                Circle()
+                    .strokeBorder(selected ? Color.white : Color.black.opacity(0.45), lineWidth: 1)
+            case .offline:
+                Circle()
+                    .strokeBorder(selected ? Color.white.opacity(0.85) : Color.gray.opacity(0.75), lineWidth: 1.2)
+            }
+        }
+        .frame(width: 8, height: 8)
     }
 }
 
@@ -138,7 +184,7 @@ final class TitlebarHider: NSView {
         guard let visible = (window.screen ?? NSScreen.main)?.visibleFrame else { return }
         var frame = window.frame
         guard frame.width > 40, frame.height > 40 else { return }
-        if frame.width < 280 { frame.size.width = min(320, visible.width - 16) }
+        if frame.width < 280 { frame.size.width = min(330, visible.width - 16) }
         if frame.height < 420 { frame.size.height = min(560, visible.height - 16) }
         if frame.minX < visible.minX { frame.origin.x = visible.minX + 8 }
         if frame.maxX > visible.maxX { frame.origin.x = visible.maxX - frame.width - 8 }
@@ -158,51 +204,118 @@ final class TitlebarHider: NSView {
 
 struct ClassicTitleBar: View {
     var title: String
+    var showWindowControls: Bool = true
+    var onClose: (() -> Void)? = nil
 
     var body: some View {
         ZStack {
-            AIMTheme.titleBlue
+            LinearGradient(
+                colors: [AIMTheme.titleTop, AIMTheme.titleBottom],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
             WindowDragView()
             HStack(spacing: 6) {
                 Image("Logo")
                     .resizable()
                     .interpolation(.high)
                     .frame(width: 16, height: 16)
+                    .clipShape(RoundedRectangle(cornerRadius: 2))
                 Text(title)
                     .font(AIMTheme.font(size: 12, bold: true))
                     .foregroundStyle(.white)
+                    .shadow(color: Color.black.opacity(0.45), radius: 0, x: 1, y: 1)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer(minLength: 4)
-                WindowGlyphButton(glyph: "_") { $0.miniaturize(nil) }.frame(width: 18, height: 16)
-                WindowGlyphButton(glyph: "□") { $0.zoom(nil) }.frame(width: 18, height: 16)
-                WindowGlyphButton(glyph: "×") { $0.performClose(nil) }.frame(width: 18, height: 16)
+                if showWindowControls {
+                    HStack(spacing: 3) {
+                        WindowGlyphButton(kind: .minimize) { $0.miniaturize(nil) }
+                            .frame(width: 18, height: 16)
+                        WindowGlyphButton(kind: .zoom) { $0.zoom(nil) }
+                            .frame(width: 18, height: 16)
+                        WindowGlyphButton(kind: .close) { window in
+                            if let onClose {
+                                onClose()
+                            } else {
+                                window.performClose(nil)
+                            }
+                        }
+                        .frame(width: 18, height: 16)
+                    }
+                } else if let onClose {
+                    Button(action: onClose) {
+                        ZStack {
+                            AIMTheme.client
+                            CloseCrossShape()
+                                .stroke(Color.black, lineWidth: 1.5)
+                                .frame(width: 8, height: 8)
+                            BevelOverlay(raised: true)
+                        }
+                        .frame(width: 18, height: 16)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.horizontal, 6)
         }
         .frame(height: 26)
     }
+}
 
+private struct CloseCrossShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.move(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        return path
+    }
 }
 
 struct WindowGlyphButton: NSViewRepresentable {
-    var glyph: String
+    enum Kind {
+        case minimize
+        case zoom
+        case close
+    }
+
+    var kind: Kind = .close
+    var glyph: String = ""
     var action: (NSWindow) -> Void
 
-    func makeNSView(context: Context) -> NSButton {
-        let button = NSButton(title: glyph, target: context.coordinator, action: #selector(Coordinator.fire(_:)))
-        button.isBordered = true
-        button.bezelStyle = .shadowlessSquare
-        button.font = AIMTheme.nsFont(size: 11, bold: true)
-        button.setButtonType(.momentaryPushIn)
-        button.controlSize = .small
+    init(kind: Kind, action: @escaping (NSWindow) -> Void) {
+        self.kind = kind
+        self.action = action
+    }
+
+    init(glyph: String, action: @escaping (NSWindow) -> Void) {
+        self.glyph = glyph
+        switch glyph {
+        case "_": self.kind = .minimize
+        case "□": self.kind = .zoom
+        default: self.kind = .close
+        }
+        self.action = action
+    }
+
+    func makeNSView(context: Context) -> ClassicWindowControlNSButton {
+        let button = ClassicWindowControlNSButton(kind: kind)
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.fire(_:))
         context.coordinator.action = action
         return button
     }
 
-    func updateNSView(_ nsView: NSButton, context: Context) {
-        nsView.title = glyph
+    func updateNSView(_ nsView: ClassicWindowControlNSButton, context: Context) {
+        nsView.kind = kind
         context.coordinator.action = action
+        nsView.needsDisplay = true
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: ClassicWindowControlNSButton, context: Context) -> CGSize {
+        CGSize(width: 18, height: 16)
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(action: action) }
@@ -218,9 +331,77 @@ struct WindowGlyphButton: NSViewRepresentable {
     }
 }
 
+final class ClassicWindowControlNSButton: NSButton {
+    var kind: WindowGlyphButton.Kind
+
+    override var isFlipped: Bool { true }
+
+    init(kind: WindowGlyphButton.Kind) {
+        self.kind = kind
+        super.init(frame: NSRect(x: 0, y: 0, width: 18, height: 16))
+        isBordered = false
+        title = ""
+        setButtonType(.momentaryPushIn)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: 18, height: 16)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let pressed = isHighlighted
+        let bg = pressed
+            ? NSColor(calibratedRed: 0.76, green: 0.75, blue: 0.72, alpha: 1)
+            : NSColor(calibratedRed: 0.835, green: 0.820, blue: 0.788, alpha: 1)
+        bg.setFill()
+        bounds.fill()
+
+        let topLeft = pressed ? NSColor(calibratedWhite: 0.30, alpha: 1) : NSColor.white
+        let bottomRight = pressed ? NSColor.white : NSColor(calibratedWhite: 0.30, alpha: 1)
+
+        topLeft.setFill()
+        NSRect(x: 0, y: 0, width: bounds.width, height: 1.5).fill()
+        NSRect(x: 0, y: 0, width: 1.5, height: bounds.height).fill()
+
+        bottomRight.setFill()
+        NSRect(x: 0, y: bounds.height - 1.5, width: bounds.width, height: 1.5).fill()
+        NSRect(x: bounds.width - 1.5, y: 0, width: 1.5, height: bounds.height).fill()
+
+        NSColor.black.setStroke()
+        NSColor.black.setFill()
+        let offset: CGFloat = pressed ? 0.5 : 0.0
+
+        switch kind {
+        case .minimize:
+            let bar = NSRect(x: 5 + offset, y: bounds.height - 5.5 + offset, width: 8, height: 2)
+            bar.fill()
+        case .zoom:
+            let box = NSRect(x: 4.5 + offset, y: 3.5 + offset, width: 9, height: 8.5)
+            let path = NSBezierPath(rect: box)
+            path.lineWidth = 1.2
+            path.stroke()
+            NSRect(x: 4.5 + offset, y: 3.5 + offset, width: 9, height: 2.2).fill()
+        case .close:
+            let path = NSBezierPath()
+            path.lineWidth = 1.6
+            path.move(to: NSPoint(x: 5 + offset, y: 4 + offset))
+            path.line(to: NSPoint(x: 13 + offset, y: 12 + offset))
+            path.move(to: NSPoint(x: 13 + offset, y: 4 + offset))
+            path.line(to: NSPoint(x: 5 + offset, y: 12 + offset))
+            path.stroke()
+        }
+    }
+}
+
 struct CaptionTool<Icon: View>: View {
     var title: String
     var sunken: Bool = false
+    var compact: Bool = false
     var action: () -> Void
     @ViewBuilder var icon: () -> Icon
 
@@ -228,16 +409,22 @@ struct CaptionTool<Icon: View>: View {
         Button(action: action) {
             VStack(spacing: 2) {
                 icon()
-                    .frame(width: 24, height: 20)
+                    .frame(width: compact ? 20 : 22, height: compact ? 18 : 20)
                 Text(title)
-                    .font(AIMTheme.font(size: 10))
+                    .font(AIMTheme.font(size: compact ? 9.5 : 10, bold: sunken))
                     .foregroundStyle(.black)
                     .lineLimit(1)
             }
-            .frame(minWidth: 58, minHeight: 46)
-            .padding(.horizontal, 2)
-            .background(AIMTheme.client)
+            .padding(.horizontal, compact ? 3 : 6)
+            .padding(.vertical, 3)
+            .frame(
+                minWidth: compact ? 48 : 56,
+                maxWidth: compact ? .infinity : nil,
+                minHeight: compact ? 42 : 46
+            )
+            .background(sunken ? AIMTheme.clientPressed : AIMTheme.client)
             .overlay(BevelOverlay(raised: !sunken))
+            .fixedSize(horizontal: !compact, vertical: true)
         }
         .buttonStyle(.plain)
     }
@@ -250,53 +437,84 @@ struct SetupSheet: View {
     @State private var keyDraft = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Setup")
-                .font(AIMTheme.font(size: 16, bold: true))
-            Text("Screen name")
-                .font(AIMTheme.font(size: 12, bold: true))
-            TextField("Me", text: $name)
-                .textFieldStyle(.plain)
-                .font(AIMTheme.font(size: 12))
-                .padding(4)
-                .background(Color.white)
-                .overlay(BevelOverlay(raised: false))
-            Text("Grok model")
-                .font(AIMTheme.font(size: 12, bold: true))
-            TextField(CLIPaths.defaultGrokModel, text: $modelName)
-                .textFieldStyle(.plain)
-                .font(AIMTheme.font(size: 12))
-                .padding(4)
-                .background(Color.white)
-                .overlay(BevelOverlay(raised: false))
-            Text(model.keySaved ? "An xAI API key is in the Keychain. Leave the field blank to keep it." : "No xAI API key is saved. It is stored in the Keychain only.")
-                .font(AIMTheme.font(size: 11))
-                .fixedSize(horizontal: false, vertical: true)
-            SecureField("xAI API key", text: $keyDraft)
-                .textFieldStyle(.plain)
-                .font(AIMTheme.font(size: 12))
-                .padding(4)
-                .background(Color.white)
-                .overlay(BevelOverlay(raised: false))
-            HStack {
-                Button("Save") {
-                    model.saveSetup(screenName: name, modelName: modelName, apiKey: keyDraft)
-                    keyDraft = ""
-                }
-                .buttonStyle(AIMButtonStyle())
-                Button("Delete Key") {
-                    model.deleteAPIKey()
-                    keyDraft = ""
-                }
-                .buttonStyle(AIMButtonStyle())
-                Spacer()
-                Button("Close") { model.showingKeySheet = false }
-                    .buttonStyle(AIMButtonStyle())
+        VStack(spacing: 0) {
+            ClassicTitleBar(title: "ShadowChat Setup", showWindowControls: false) {
+                model.showingKeySheet = false
             }
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Screen Name")
+                        .font(AIMTheme.font(size: 12, bold: true))
+                        .foregroundStyle(.black)
+                    TextField("Me", text: $name)
+                        .textFieldStyle(.plain)
+                        .font(AIMTheme.font(size: 12))
+                        .foregroundStyle(.black)
+                        .padding(6)
+                        .background(Color.white)
+                        .overlay(BevelOverlay(raised: false))
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Grok Model (xAI)")
+                        .font(AIMTheme.font(size: 12, bold: true))
+                        .foregroundStyle(.black)
+                    TextField(CLIPaths.defaultGrokModel, text: $modelName)
+                        .textFieldStyle(.plain)
+                        .font(AIMTheme.font(size: 12))
+                        .foregroundStyle(.black)
+                        .padding(6)
+                        .background(Color.white)
+                        .overlay(BevelOverlay(raised: false))
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("xAI API Key")
+                        .font(AIMTheme.font(size: 12, bold: true))
+                        .foregroundStyle(.black)
+                    Text(model.keySaved ? "✓ An xAI API key is saved in the macOS Keychain. Leave blank to keep it." : "Optional — stored only in the macOS Keychain for direct Grok turns.")
+                        .font(AIMTheme.font(size: 10.5))
+                        .foregroundStyle(.black.opacity(0.8))
+                        .fixedSize(horizontal: false, vertical: true)
+                    SecureField("Paste xAI API key…", text: $keyDraft)
+                        .textFieldStyle(.plain)
+                        .font(AIMTheme.font(size: 12))
+                        .foregroundStyle(.black)
+                        .padding(6)
+                        .background(Color.white)
+                        .overlay(BevelOverlay(raised: false))
+                }
+                .padding(8)
+                .background(AIMTheme.cream)
+                .overlay(BevelOverlay(raised: false))
+
+                HStack(spacing: 8) {
+                    Button("Save") {
+                        model.saveSetup(screenName: name, modelName: modelName, apiKey: keyDraft)
+                        keyDraft = ""
+                        model.showingKeySheet = false
+                    }
+                    .buttonStyle(AIMButtonStyle())
+                    if model.keySaved {
+                        Button("Delete Key") {
+                            model.deleteAPIKey()
+                            keyDraft = ""
+                        }
+                        .buttonStyle(AIMButtonStyle())
+                    }
+                    Spacer()
+                    Button("Close") { model.showingKeySheet = false }
+                        .buttonStyle(AIMButtonStyle())
+                }
+                .padding(.top, 2)
+            }
+            .padding(14)
+            .background(AIMTheme.client)
+            .padding(4)
         }
-        .padding(16)
         .frame(width: 440)
-        .background(AIMTheme.client)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(AIMTheme.frameBlue)
         .preferredColorScheme(.light)
         .onAppear {
             name = model.screenName
@@ -337,10 +555,15 @@ enum ScreenColors {
 enum TranscriptRenderer {
     static func render(_ messages: [ChatMessage]) -> NSAttributedString {
         let result = NSMutableAttributedString()
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineSpacing = 1.5
+        paragraph.paragraphSpacing = 3.0
+
         let bodyFont = AIMTheme.nsFont(size: 12)
         let bodyAttrs: [NSAttributedString.Key: Any] = [
             .font: bodyFont,
-            .foregroundColor: NSColor.black
+            .foregroundColor: NSColor.black,
+            .paragraphStyle: paragraph
         ]
         let noteFont = AIMTheme.nsFont(size: 12, italic: true)
         for message in messages {
@@ -349,7 +572,8 @@ enum TranscriptRenderer {
                 string: message.senderName,
                 attributes: [
                     .font: nameFont,
-                    .foregroundColor: ScreenColors.color(sender: message.sender, name: message.senderName)
+                    .foregroundColor: ScreenColors.color(sender: message.sender, name: message.senderName),
+                    .paragraphStyle: paragraph
                 ]
             )
             result.append(name)
@@ -363,12 +587,12 @@ enum TranscriptRenderer {
             if message.status == .cancelled {
                 result.append(NSAttributedString(
                     string: " (cancelled)",
-                    attributes: [.font: noteFont, .foregroundColor: NSColor.darkGray]
+                    attributes: [.font: noteFont, .foregroundColor: NSColor.darkGray, .paragraphStyle: paragraph]
                 ))
             } else if message.status == .error {
                 result.append(NSAttributedString(
                     string: " (error)",
-                    attributes: [.font: noteFont, .foregroundColor: NSColor.darkGray]
+                    attributes: [.font: noteFont, .foregroundColor: NSColor.darkGray, .paragraphStyle: paragraph]
                 ))
             }
             result.append(NSAttributedString(string: "\n", attributes: bodyAttrs))

@@ -163,6 +163,7 @@ struct ComposeBox: NSViewRepresentable {
 
 struct TranscriptView: NSViewRepresentable {
     var messages: [ChatMessage]
+    var scrollToBottom: Bool = true
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSScrollView()
@@ -191,28 +192,49 @@ struct TranscriptView: NSViewRepresentable {
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let text = nsView.documentView as? NSTextView else { return }
         let rendered = TranscriptRenderer.render(messages)
-        text.textStorage?.setAttributedString(rendered)
-        text.scrollToEndOfDocument(nil)
+        if text.attributedString() != rendered {
+            text.textStorage?.setAttributedString(rendered)
+            if scrollToBottom {
+                text.scrollToEndOfDocument(nil)
+            } else {
+                text.scrollRangeToVisible(NSRange(location: 0, length: 0))
+            }
+        }
     }
 }
 
 struct ClassicMenuButton: NSViewRepresentable {
     var title: String
+    var fontSize: CGFloat = 11.5
+    var bold: Bool = false
     var items: [(title: String, key: String, action: () -> Void)]
 
     func makeNSView(context: Context) -> NSButton {
         let button = NSButton(title: title, target: context.coordinator, action: #selector(Coordinator.pop(_:)))
         button.bezelStyle = .shadowlessSquare
         button.isBordered = false
-        button.font = AIMTheme.nsFont(size: 12)
+        button.font = AIMTheme.nsFont(size: fontSize, bold: bold)
+        button.contentTintColor = .black
         button.setButtonType(.momentaryPushIn)
+        button.lineBreakMode = .byClipping
         button.setContentHuggingPriority(.required, for: .horizontal)
+        button.setContentHuggingPriority(.required, for: .vertical)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        button.setContentCompressionResistancePriority(.required, for: .vertical)
         return button
     }
 
     func updateNSView(_ nsView: NSButton, context: Context) {
         nsView.title = title
+        nsView.font = AIMTheme.nsFont(size: fontSize, bold: bold)
         context.coordinator.items = items
+        nsView.invalidateIntrinsicContentSize()
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSButton, context: Context) -> CGSize {
+        let font = AIMTheme.nsFont(size: fontSize, bold: bold)
+        let textWidth = (title as NSString).size(withAttributes: [.font: font]).width
+        return CGSize(width: ceil(textWidth) + 8, height: 18)
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(items: items) }
@@ -228,13 +250,17 @@ struct ClassicMenuButton: NSViewRepresentable {
             menu.autoenablesItems = false
             retain.removeAll()
             for item in items {
+                if item.title == "---" {
+                    menu.addItem(.separator())
+                    continue
+                }
                 let target = ActionTarget(item.action)
                 retain.append(target)
                 let menuItem = NSMenuItem(title: item.title, action: #selector(ActionTarget.run), keyEquivalent: item.key)
                 menuItem.target = target
                 menu.addItem(menuItem)
             }
-            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 2), in: sender)
         }
     }
 }

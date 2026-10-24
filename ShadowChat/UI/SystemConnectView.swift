@@ -23,9 +23,9 @@ struct SystemConnectView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(AIMTheme.frameBlue)
-        .ignoresSafeArea()
+        .ignoresSafeArea(.container, edges: .top)
         .overlay(WindowConfigurator(title: windowTitle).frame(width: 0, height: 0))
-        .frame(minWidth: 680, minHeight: 530)
+        .frame(minWidth: 700, minHeight: 540)
         .preferredColorScheme(.light)
     }
 
@@ -35,69 +35,86 @@ struct SystemConnectView: View {
     }
 
     private var menuBar: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 4) {
-                ClassicMenuButton(title: "File", items: [
-                    ("Open Target Room", "l", openTargetRoom),
-                    ("Close", "w", { NSApp.keyWindow?.performClose(nil) })
-                ])
-                ClassicMenuButton(title: "Edit", items: [
-                    ("Copy Prompt", "c", copyPrompt),
-                    ("Copy Context Handoff Packet", "h", copyHandoff),
-                    ("Copy 1-Line Command", "1", copyOneLiner),
-                    ("Select All", "a", { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) })
-                ])
-                ClassicMenuButton(title: "Program", items: programMenuItems)
-                ClassicMenuButton(title: "Room", items: roomMenuItems)
-                ClassicMenuButton(title: "Mode", items: modeMenuItems)
-                Spacer(minLength: 8)
-                Text(status)
-                    .font(AIMTheme.font(size: 10, bold: true))
-                    .foregroundStyle(.black)
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .frame(height: 26)
+        HStack(spacing: 6) {
+            ClassicMenuButton(title: "File", items: [
+                ("Open Target Room", "l", openTargetRoom),
+                ("Close", "w", { NSApp.keyWindow?.performClose(nil) })
+            ])
+            ClassicMenuButton(title: "Edit", items: [
+                ("Copy Prompt", "c", copyPrompt),
+                ("Copy Context Handoff Packet", "h", copyHandoff),
+                ("Copy 1-Line Command", "1", copyOneLiner),
+                ("---", "", {}),
+                ("Select All", "a", { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) })
+            ])
+            ClassicMenuButton(title: "Program", items: programMenuItems)
+            ClassicMenuButton(title: "Room", items: roomMenuItems)
+            ClassicMenuButton(title: "Mode", items: modeMenuItems)
+            Spacer(minLength: 8)
+            PresenceDot(state: model.bridgePort > 0 ? .online : .offline)
+            Text(status)
+                .font(AIMTheme.font(size: 10, bold: true))
+                .foregroundStyle(.black)
+                .lineLimit(1)
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .frame(height: 24)
         .background(AIMTheme.client)
     }
 
     private var presetBar: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 4) {
-                Text("1-Click Copy for:")
-                    .font(AIMTheme.font(size: 10, bold: true))
+                Text("1-Click Copy:")
+                    .font(AIMTheme.font(size: 10.5, bold: true))
                     .foregroundStyle(.black)
-                ForEach(ConnectPreset.featured) { preset in
-                    let isOnline = preset != .universal && model.isGuestConnected(preset.screenName)
-                    Button((isOnline ? "● " : "") + preset.buttonTitle) {
-                        selectPreset(preset)
+                    .lineLimit(1)
+                    .fixedSize()
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 3) {
+                        ForEach(ConnectPreset.featured) { preset in
+                            let isOnline = preset != .universal && model.isGuestConnected(preset.screenName)
+                            Button((isOnline ? "● " : "") + preset.buttonTitle) {
+                                selectPreset(preset)
+                            }
+                            .buttonStyle(AIMButtonStyle(sunken: model.selectedConnectPreset == preset, compact: true))
+                        }
+                        ClassicMenuButton(
+                            title: "More ▾",
+                            fontSize: 11,
+                            bold: ConnectPreset.additional.contains(model.selectedConnectPreset),
+                            items: ConnectPreset.additional.map { preset in
+                                let isOnline = model.isGuestConnected(preset.screenName)
+                                return ((isOnline ? "● " : "") + preset.displayName, "", { selectPreset(preset) })
+                            }
+                        )
+                        .padding(.horizontal, 4)
+                        .frame(height: 22)
+                        .background(ConnectPreset.additional.contains(model.selectedConnectPreset) ? AIMTheme.clientPressed : AIMTheme.client)
+                        .overlay(BevelOverlay(raised: !ConnectPreset.additional.contains(model.selectedConnectPreset)))
+                        .fixedSize()
                     }
-                    .buttonStyle(AIMButtonStyle(sunken: model.selectedConnectPreset == preset))
                 }
-                ClassicMenuButton(title: "More ▾", items: ConnectPreset.additional.map { preset in
-                    let isOnline = model.isGuestConnected(preset.screenName)
-                    return ((isOnline ? "● " : "") + preset.displayName, "", { selectPreset(preset) })
-                })
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(AIMTheme.client)
-                .overlay(BevelOverlay(raised: !ConnectPreset.additional.contains(model.selectedConnectPreset)))
-                Spacer(minLength: 4)
             }
             HStack(spacing: 6) {
                 Text("Target Room:")
-                    .font(AIMTheme.font(size: 10, bold: true))
+                    .font(AIMTheme.font(size: 10.5, bold: true))
                     .foregroundStyle(.black)
-                ClassicMenuButton(title: "\(model.selectedConnectRoom) ▾", items: roomMenuItems)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
+                    .lineLimit(1)
+                    .fixedSize()
+                ClassicMenuButton(title: "\(model.selectedConnectRoom) ▾", fontSize: 11, items: roomMenuItems)
+                    .padding(.horizontal, 4)
+                    .frame(height: 22)
                     .background(Color.white)
                     .overlay(BevelOverlay(raised: false))
+                    .fixedSize()
                 Text("Format:")
-                    .font(AIMTheme.font(size: 10, bold: true))
+                    .font(AIMTheme.font(size: 10.5, bold: true))
                     .foregroundStyle(.black)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.leading, 4)
                 ForEach(ConnectPromptMode.allCases) { mode in
                     Button(mode.label) {
                         model.selectConnectMode(mode, copyToClipboard: true)
@@ -105,13 +122,13 @@ struct SystemConnectView: View {
                         copiedOneLine = false
                         copiedHandoff = false
                     }
-                    .buttonStyle(AIMButtonStyle(sunken: model.selectedConnectMode == mode))
+                    .buttonStyle(AIMButtonStyle(sunken: model.selectedConnectMode == mode, compact: true))
                 }
                 Spacer(minLength: 4)
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
         .background(AIMTheme.groupHeader.opacity(0.55))
         .overlay(BevelOverlay(raised: true))
         .padding(.horizontal, 8)
@@ -123,16 +140,18 @@ struct SystemConnectView: View {
                 Text(bannerHeadline)
                     .font(AIMTheme.font(size: 11, bold: true))
                     .foregroundStyle(.black)
-                Spacer()
+                    .lineLimit(1)
+                Spacer(minLength: 4)
                 if !model.joinedGuests.isEmpty {
                     Text("Online via Bridge: \(model.joinedGuests.joined(separator: ", "))")
                         .font(AIMTheme.font(size: 10, bold: true))
                         .foregroundStyle(Color(red: 0.0, green: 0.42, blue: 0.13))
+                        .lineLimit(1)
                 }
             }
             Text("Step 1: Click your program button above (auto-copies prompt)  ➔  Step 2: Paste (⌘V) into Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, etc.  ➔  Step 3: Chat in \(model.selectedConnectRoom)!")
                 .font(AIMTheme.font(size: 10))
-                .foregroundStyle(.black.opacity(0.82))
+                .foregroundStyle(.black.opacity(0.84))
                 .lineLimit(2)
         }
         .padding(.horizontal, 8)
@@ -145,7 +164,7 @@ struct SystemConnectView: View {
     }
 
     private var transcript: some View {
-        TranscriptView(messages: systemMessages)
+        TranscriptView(messages: systemMessages, scrollToBottom: false)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.white)
             .overlay(BevelOverlay(raised: false))
@@ -155,7 +174,7 @@ struct SystemConnectView: View {
     }
 
     private var toolbar: some View {
-        HStack(alignment: .bottom, spacing: 6) {
+        HStack(alignment: .center, spacing: 6) {
             CaptionTool(title: copied ? "Copied" : "Copy", sunken: copied, action: copyPrompt) {
                 Text("C")
                     .font(AIMTheme.font(size: 14, bold: true))
@@ -187,9 +206,10 @@ struct SystemConnectView: View {
             }
             Text("Works with Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, Gemini, ChatGPT, Windsurf, Aider, Goose, Cline, OpenCode, Warp, Zed & more.")
                 .font(AIMTheme.font(size: 10))
-                .foregroundStyle(.black)
+                .foregroundStyle(.black.opacity(0.85))
                 .lineLimit(2)
-            Spacer(minLength: 8)
+                .padding(.horizontal, 4)
+            Spacer(minLength: 6)
             CaptionTool(title: "Open Room", action: openTargetRoom) {
                 Image("Logo")
                     .resizable()
@@ -197,7 +217,8 @@ struct SystemConnectView: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.bottom, 6)
+        .padding(.top, 2)
         .background(AIMTheme.client)
     }
 
@@ -230,6 +251,7 @@ struct SystemConnectView: View {
         }
         let installed = ConnectPreset.installedPresets()
         if !installed.isEmpty {
+            items.append(("---", "", {}))
             for preset in installed {
                 items.append(("Copy & Open \(preset.displayName) ↗", "", {
                     model.copyAndOpenApp(for: preset, roomName: model.selectedConnectRoom)

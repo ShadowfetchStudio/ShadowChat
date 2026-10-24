@@ -27,8 +27,9 @@ struct BuddyListView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(AIMTheme.frameBlue)
+        .ignoresSafeArea(.container, edges: .top)
         .overlay(WindowConfigurator(title: "ShadowChat").frame(width: 0, height: 0))
-        .frame(minWidth: 310, minHeight: 560)
+        .frame(minWidth: 320, minHeight: 580)
         .preferredColorScheme(.light)
         .onAppear { if !model.showingWelcome { openWindow(id: "connect") } }
         .onChange(of: model.connectRequest) { _, _ in openWindow(id: "connect") }
@@ -56,80 +57,105 @@ struct BuddyListView: View {
             Image("Logo")
                 .resizable()
                 .interpolation(.high)
-                .frame(width: 132, height: 132)
-                .background(AIMTheme.logoBlue)
+                .frame(width: 120, height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(BevelOverlay(raised: false))
             Text("ShadowChat")
                 .font(AIMTheme.font(size: 20, bold: true))
                 .foregroundStyle(.white)
-                .shadow(color: Color.yellow, radius: 0, x: 1, y: 1)
+                .shadow(color: Color.black.opacity(0.65), radius: 0, x: 1, y: 1)
+            Text("Multi-Program AI Messenger")
+                .font(AIMTheme.font(size: 10, bold: true))
+                .foregroundStyle(AIMTheme.cream.opacity(0.92))
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(AIMTheme.logoBlue)
+        .padding(.vertical, 12)
+        .background(
+            LinearGradient(
+                colors: [AIMTheme.logoBlue, AIMTheme.frameBlue],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
         .overlay(BevelOverlay(raised: true))
-        .padding(8)
+        .padding(.horizontal, 8)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
         .background(AIMTheme.client)
     }
 
     private var signOnPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Screen Name")
-                .font(AIMTheme.font(size: 12, bold: true))
-                .foregroundStyle(.black)
-            TextField("Me", text: $model.screenName)
-                .textFieldStyle(.plain)
-                .font(AIMTheme.font(size: 13))
-                .foregroundStyle(.black)
-                .padding(4)
-                .background(Color.white)
-                .overlay(BevelOverlay(raised: false))
-                .onSubmit { model.signOn() }
-            Text("Local sign on. No password leaves this Mac.")
-                .font(AIMTheme.font(size: 10))
-                .foregroundStyle(.black.opacity(0.7))
-
             VStack(alignment: .leading, spacing: 4) {
+                Text("Screen Name")
+                    .font(AIMTheme.font(size: 12, bold: true))
+                    .foregroundStyle(.black)
+                TextField("Me", text: $model.screenName)
+                    .textFieldStyle(.plain)
+                    .font(AIMTheme.font(size: 13))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 5)
+                    .background(Color.white)
+                    .overlay(BevelOverlay(raised: false))
+                    .onSubmit { model.signOn() }
+                Text("Local sign on. No password leaves this Mac.")
+                    .font(AIMTheme.font(size: 10))
+                    .foregroundStyle(.black.opacity(0.72))
+                    .lineLimit(1)
+            }
+
+            VStack(alignment: .leading, spacing: 5) {
                 Text("1-Click Copy Prompt (Paste into any AI app):")
                     .font(AIMTheme.font(size: 10, bold: true))
                     .foregroundStyle(.black)
+                    .lineLimit(1)
                 HStack(spacing: 4) {
-                    ForEach([ConnectPreset.grokBot, .muse, .claude, .codex, .antigravity]) { preset in
+                    ForEach([ConnectPreset.grokBot, .muse, .claude]) { preset in
                         Button(preset.buttonTitle) {
                             _ = model.selectConnectPreset(preset, copyToClipboard: true)
                             openWindow(id: "connect")
                         }
-                        .buttonStyle(AIMButtonStyle(sunken: model.selectedConnectPreset == preset))
+                        .buttonStyle(AIMButtonStyle(sunken: model.selectedConnectPreset == preset, compact: true, fillWidth: true))
+                    }
+                }
+                HStack(spacing: 4) {
+                    ForEach([ConnectPreset.codex, .antigravity, .cursor]) { preset in
+                        Button(preset.buttonTitle) {
+                            _ = model.selectConnectPreset(preset, copyToClipboard: true)
+                            openWindow(id: "connect")
+                        }
+                        .buttonStyle(AIMButtonStyle(sunken: model.selectedConnectPreset == preset, compact: true, fillWidth: true))
                     }
                 }
             }
-            .padding(6)
+            .padding(7)
             .background(AIMTheme.cream)
             .overlay(BevelOverlay(raised: false))
 
             HStack(alignment: .bottom, spacing: 6) {
-                CaptionTool(title: "Help") {
+                CaptionTool(title: "Help", compact: true) {
                     model.showingWelcome = true
                 } icon: {
                     Text("?")
-                        .font(AIMTheme.font(size: 16, bold: true))
+                        .font(AIMTheme.font(size: 15, bold: true))
                         .foregroundStyle(.black)
                 }
-                CaptionTool(title: "Setup") {
+                CaptionTool(title: "Setup", compact: true) {
                     model.showingKeySheet = true
                 } icon: {
                     Text("⚒")
-                        .font(AIMTheme.font(size: 14))
+                        .font(AIMTheme.font(size: 13))
                         .foregroundStyle(.black)
                 }
-                CaptionTool(title: "Connect") {
+                CaptionTool(title: "Connect", compact: true) {
                     openWindow(id: "connect")
                 } icon: {
                     Text("C")
-                        .font(AIMTheme.font(size: 14, bold: true))
+                        .font(AIMTheme.font(size: 13, bold: true))
                         .foregroundStyle(.black)
                 }
-                Spacer()
-                CaptionTool(title: "Sign On") {
+                CaptionTool(title: "Sign On", compact: true) {
                     model.signOn()
                 } icon: {
                     Image("Logo")
@@ -137,19 +163,23 @@ struct BuddyListView: View {
                         .interpolation(.high)
                 }
             }
+            .padding(.top, 2)
         }
-        .padding(10)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
         .background(AIMTheme.client)
     }
 
     private var groupList: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 2) {
-                group("Agents") {
+                let onlineAgents = model.buddies.filter { $0.online && $0.enabled }.count
+                group("Agents", countBadge: "\(onlineAgents)/\(model.buddies.count)") {
                     ForEach(model.buddies) { buddy in
                         let isOnline = buddy.online && buddy.enabled
                         row(
-                            title: (isOnline ? "● " : "○ ") + buddy.id.screenName,
+                            dotState: isOnline ? .online : .offline,
+                            title: buddy.id.screenName,
                             trailing: isOnline ? "Online" : (buddy.enabled ? "Offline" : "Off"),
                             selected: selection == .buddy(buddy.id),
                             online: isOnline,
@@ -166,12 +196,15 @@ struct BuddyListView: View {
                         }
                     }
                 }
-                group("Bridge Programs") {
+                let bridgeCount = ConnectPreset.bridgeRosterPresets.count + customConnectedGuests.count
+                let connectedCount = model.joinedGuests.count
+                group("Bridge Programs", countBadge: connectedCount > 0 ? "\(connectedCount) live" : "\(bridgeCount)") {
                     ForEach(ConnectPreset.bridgeRosterPresets) { preset in
                         let connected = model.isGuestConnected(preset.screenName)
                         let installed = preset.installedAppURL() != nil
                         row(
-                            title: (connected ? "● " : "◌ ") + preset.displayName,
+                            dotState: connected ? .online : (installed ? .installed : .offline),
+                            title: preset.displayName,
                             trailing: connected ? "Connected" : (installed ? "Installed ↗" : "Copy Prompt"),
                             selected: selection == .guest(preset.screenName),
                             online: connected || installed,
@@ -219,7 +252,8 @@ struct BuddyListView: View {
                     }
                     ForEach(customConnectedGuests, id: \.self) { guest in
                         row(
-                            title: "● " + guest,
+                            dotState: .online,
+                            title: guest,
                             trailing: "Connected",
                             selected: selection == .guest(guest),
                             online: true,
@@ -232,9 +266,10 @@ struct BuddyListView: View {
                         }
                     }
                 }
-                group("Buddies") {
+                group("Buddies", countBadge: model.signedOn ? "1/1" : "0/1") {
                     row(
-                        title: "● " + (model.screenName.isEmpty ? "Me" : model.screenName),
+                        dotState: model.signedOn ? .online : .offline,
+                        title: model.screenName.isEmpty ? "Me" : model.screenName,
                         trailing: model.signedOn ? "Online" : "Offline",
                         selected: selection == .buddy(.me),
                         online: model.signedOn,
@@ -246,16 +281,18 @@ struct BuddyListView: View {
                         model.openLobby()
                     }
                 }
-                group("Rooms") {
+                group("Rooms", countBadge: "\(model.rooms.count)") {
                     ForEach(model.rooms) { room in
                         let phase = (model.engines[room.id]?.phase ?? room.runState)
                         let badge = room.kind == .lobby
                             ? (phase == .running ? "Lobby · Run" : "Lobby")
                             : (phase == .running ? "Project · Run" : "Project")
                         row(
+                            dotState: phase == .running ? .online : .installed,
                             title: room.name,
                             trailing: badge,
                             selected: selection == .room(room.id),
+                            online: true,
                             help: room.projectPath ?? "Double-click to open \(room.name)"
                         ) {
                             selection = .room(room.id)
@@ -264,78 +301,91 @@ struct BuddyListView: View {
                             model.requestOpen(room.id)
                         }
                     }
-                    Button("Add Project…") { chooseProject() }
-                        .buttonStyle(AIMButtonStyle())
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                    HStack {
+                        Button("Add Project Room…") { chooseProject() }
+                            .buttonStyle(AIMButtonStyle(compact: true))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
                 }
             }
             .padding(.vertical, 4)
+            .padding(.horizontal, 4)
         }
         .scrollContentBackground(.hidden)
+        .background(Color.white)
+        .overlay(BevelOverlay(raised: false))
+        .padding(.horizontal, 6)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
         .background(AIMTheme.client)
     }
 
     private var signedOnToolbar: some View {
         HStack(spacing: 4) {
-            CaptionTool(title: "Lobby", action: { model.openLobby() }) {
+            CaptionTool(title: "Lobby", compact: true, action: { model.openLobby() }) {
                 Image("Logo")
                     .resizable()
                     .interpolation(.high)
             }
-            CaptionTool(title: "Connect", action: { openWindow(id: "connect") }) {
+            CaptionTool(title: "Connect", compact: true, action: { openWindow(id: "connect") }) {
                 Text("C")
                     .font(AIMTheme.font(size: 13, bold: true))
                     .foregroundStyle(.black)
             }
-            CaptionTool(title: "Setup", action: { model.showingKeySheet = true }) {
+            CaptionTool(title: "Setup", compact: true, action: { model.showingKeySheet = true }) {
                 Text("⚒")
                     .font(AIMTheme.font(size: 13))
                     .foregroundStyle(.black)
             }
-            CaptionTool(title: "Help", action: { model.showingWelcome = true }) {
+            CaptionTool(title: "Help", compact: true, action: { model.showingWelcome = true }) {
                 Text("?")
-                    .font(AIMTheme.font(size: 15, bold: true))
+                    .font(AIMTheme.font(size: 14, bold: true))
                     .foregroundStyle(.black)
             }
-            CaptionTool(title: "Project", action: chooseProject) {
+            CaptionTool(title: "Project", compact: true, action: chooseProject) {
                 Text("+")
                     .font(AIMTheme.font(size: 15, bold: true))
                     .foregroundStyle(.black)
             }
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 6)
         .padding(.vertical, 4)
         .background(AIMTheme.client)
-        .overlay(alignment: .top) {
-            Rectangle().fill(AIMTheme.bevelDark.opacity(0.35)).frame(height: 1)
-        }
     }
 
     private var footer: some View {
-        HStack(alignment: .bottom) {
+        VStack(alignment: .leading, spacing: 5) {
             Text(footerText)
                 .font(AIMTheme.font(size: 10))
-                .foregroundStyle(.black.opacity(0.75))
-                .lineLimit(3)
-            Spacer(minLength: 6)
-            Button("Connect") { openWindow(id: "connect") }
-                .buttonStyle(AIMButtonStyle())
-            if model.signedOn {
-                Button("Sign Off") { model.signOff() }
-                    .buttonStyle(AIMButtonStyle())
+                .foregroundStyle(.black.opacity(0.85))
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 26, alignment: .leading)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .background(AIMTheme.cream)
+                .overlay(BevelOverlay(raised: false))
+
+            HStack(spacing: 6) {
+                Text(model.bridgePort > 0 ? "v\(model.version) · 127.0.0.1:\(model.bridgePort)" : "Version \(model.version)")
+                    .font(AIMTheme.font(size: 9.5))
+                    .foregroundStyle(.black.opacity(0.6))
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Button("Connect") { openWindow(id: "connect") }
+                    .buttonStyle(AIMButtonStyle(compact: true))
+                if model.signedOn {
+                    Button("Sign Off") { model.signOff() }
+                        .buttonStyle(AIMButtonStyle(compact: true))
+                }
             }
-            Text("Version: \(model.version)")
-                .font(AIMTheme.font(size: 10))
-                .foregroundStyle(.black.opacity(0.55))
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 6)
         .padding(.vertical, 6)
-        .frame(minHeight: 36)
         .background(AIMTheme.client)
         .overlay(alignment: .top) {
-            Rectangle().fill(AIMTheme.bevelDark.opacity(0.45)).frame(height: 1)
+            Rectangle().fill(AIMTheme.bevelDark.opacity(0.35)).frame(height: 1)
         }
     }
 
@@ -373,17 +423,25 @@ struct BuddyListView: View {
         Binding(get: { model.alert != nil }, set: { if !$0 { model.alert = nil } })
     }
 
-    private func group<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func group<Content: View>(_ title: String, countBadge: String = "", @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
                 if expanded.contains(title) { expanded.remove(title) } else { expanded.insert(title) }
             } label: {
                 HStack(spacing: 6) {
                     Text(expanded.contains(title) ? "▼" : "▶")
-                        .font(.system(size: 9))
+                        .font(.system(size: 8.5, weight: .bold))
+                        .frame(width: 10)
                     Text(title)
-                        .font(AIMTheme.font(size: 12, bold: true))
-                    Spacer()
+                        .font(AIMTheme.font(size: 11.5, bold: true))
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    if !countBadge.isEmpty {
+                        Text(countBadge)
+                            .font(AIMTheme.font(size: 9.5))
+                            .foregroundStyle(.black.opacity(0.62))
+                            .lineLimit(1)
+                    }
                 }
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
@@ -399,6 +457,7 @@ struct BuddyListView: View {
     }
 
     private func row(
+        dotState: PresenceDotState,
         title: String,
         trailing: String,
         selected: Bool,
@@ -407,16 +466,21 @@ struct BuddyListView: View {
         action: @escaping () -> Void,
         double: @escaping () -> Void
     ) -> some View {
-        HStack {
+        HStack(spacing: 7) {
+            PresenceDot(state: dotState, selected: selected)
             Text(title)
-                .font(AIMTheme.font(size: 12))
-            Spacer()
+                .font(AIMTheme.font(size: 11.5, bold: selected))
+                .lineLimit(1)
+            Spacer(minLength: 6)
             Text(trailing)
                 .font(AIMTheme.font(size: 10))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .opacity(selected ? 0.95 : 0.80)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 2)
-        .foregroundStyle(selected ? Color.white : (online ? Color.black : Color.gray))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .foregroundStyle(selected ? Color.white : (online ? Color.black : Color(white: 0.45)))
         .background(selected ? AIMTheme.highlight : Color.clear)
         .contentShape(Rectangle())
         .onTapGesture(count: 2, perform: double)

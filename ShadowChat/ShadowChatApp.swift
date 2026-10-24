@@ -12,7 +12,7 @@ struct ShadowChatApp: App {
                 .environmentObject(model)
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 320, height: 640)
+        .defaultSize(width: 330, height: 650)
         .commands {
             CommandGroup(replacing: .newItem) {}
         }
@@ -22,14 +22,14 @@ struct ShadowChatApp: App {
                 .environmentObject(model)
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 720, height: 560)
+        .defaultSize(width: 740, height: 560)
 
         Window("ShadowChat System", id: "connect") {
             SystemConnectView()
                 .environmentObject(model)
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 720, height: 560)
+        .defaultSize(width: 740, height: 560)
     }
 }
 
