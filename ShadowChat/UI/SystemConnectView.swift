@@ -4,12 +4,15 @@ import SwiftUI
 struct SystemConnectView: View {
     @EnvironmentObject private var model: AppModel
     @State private var copied = false
+    @State private var copiedOneLine = false
 
     var body: some View {
         VStack(spacing: 0) {
             ClassicTitleBar(title: windowTitle)
             VStack(spacing: 0) {
                 menuBar
+                presetBar
+                guideBanner
                 transcript
                 toolbar
             }
@@ -21,7 +24,7 @@ struct SystemConnectView: View {
         .background(AIMTheme.frameBlue)
         .ignoresSafeArea()
         .overlay(WindowConfigurator(title: windowTitle).frame(width: 0, height: 0))
-        .frame(minWidth: 620, minHeight: 460)
+        .frame(minWidth: 660, minHeight: 520)
         .preferredColorScheme(.light)
     }
 
@@ -32,28 +35,108 @@ struct SystemConnectView: View {
 
     private var menuBar: some View {
         VStack(spacing: 0) {
-        HStack(spacing: 4) {
-            ClassicMenuButton(title: "File", items: [
-                ("Close", "w", { NSApp.keyWindow?.performClose(nil) })
-            ])
-            ClassicMenuButton(title: "Edit", items: [
-                ("Copy", "c", copyPrompt),
-                ("Select All", "a", { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) })
-            ])
-            Spacer(minLength: 8)
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
-        .frame(height: 26)
-        Text(status)
-            .font(AIMTheme.font(size: 10))
-            .foregroundStyle(.black)
-            .lineLimit(2)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 8)
-            .padding(.bottom, 3)
+            HStack(spacing: 4) {
+                ClassicMenuButton(title: "File", items: [
+                    ("Open Lobby", "l", openTargetRoom),
+                    ("Close", "w", { NSApp.keyWindow?.performClose(nil) })
+                ])
+                ClassicMenuButton(title: "Edit", items: [
+                    ("Copy Prompt", "c", copyPrompt),
+                    ("Copy 1-Line Command", "1", copyOneLiner),
+                    ("Select All", "a", { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) })
+                ])
+                ClassicMenuButton(title: "Program", items: programMenuItems)
+                ClassicMenuButton(title: "Room", items: roomMenuItems)
+                ClassicMenuButton(title: "Mode", items: modeMenuItems)
+                Spacer(minLength: 8)
+                Text(status)
+                    .font(AIMTheme.font(size: 10, bold: true))
+                    .foregroundStyle(.black)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .frame(height: 26)
         }
         .background(AIMTheme.client)
+    }
+
+    private var presetBar: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Text("1-Click Copy for:")
+                    .font(AIMTheme.font(size: 10, bold: true))
+                    .foregroundStyle(.black)
+                ForEach(ConnectPreset.featured) { preset in
+                    Button(preset.buttonTitle) {
+                        selectPreset(preset)
+                    }
+                    .buttonStyle(AIMButtonStyle(sunken: model.selectedConnectPreset == preset))
+                }
+                ClassicMenuButton(title: "More ▾", items: ConnectPreset.additional.map { preset in
+                    (preset.displayName, "", { selectPreset(preset) })
+                })
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(AIMTheme.client)
+                .overlay(BevelOverlay(raised: !ConnectPreset.additional.contains(model.selectedConnectPreset)))
+                Spacer(minLength: 4)
+            }
+            HStack(spacing: 8) {
+                Text("Target Room:")
+                    .font(AIMTheme.font(size: 10, bold: true))
+                    .foregroundStyle(.black)
+                ClassicMenuButton(title: "\(model.selectedConnectRoom) ▾", items: roomMenuItems)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.white)
+                    .overlay(BevelOverlay(raised: false))
+                Text("Format:")
+                    .font(AIMTheme.font(size: 10, bold: true))
+                    .foregroundStyle(.black)
+                ForEach(ConnectPromptMode.allCases) { mode in
+                    Button(mode.label) {
+                        model.selectConnectMode(mode, copyToClipboard: true)
+                        copied = true
+                        copiedOneLine = false
+                    }
+                    .buttonStyle(AIMButtonStyle(sunken: model.selectedConnectMode == mode))
+                }
+                Spacer(minLength: 4)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(AIMTheme.groupHeader.opacity(0.55))
+        .overlay(BevelOverlay(raised: true))
+        .padding(.horizontal, 8)
+    }
+
+    private var guideBanner: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Text(bannerHeadline)
+                    .font(AIMTheme.font(size: 11, bold: true))
+                    .foregroundStyle(.black)
+                Spacer()
+                if !model.joinedGuests.isEmpty {
+                    Text("Online via Bridge: \(model.joinedGuests.joined(separator: ", "))")
+                        .font(AIMTheme.font(size: 10, bold: true))
+                        .foregroundStyle(Color(red: 0.0, green: 0.42, blue: 0.13))
+                }
+            }
+            Text("Step 1: Click your program button above (auto-copies prompt)  ➔  Step 2: Paste (⌘V) into Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, etc.  ➔  Step 3: Chat in \(model.selectedConnectRoom)!")
+                .font(AIMTheme.font(size: 10))
+                .foregroundStyle(.black.opacity(0.82))
+                .lineLimit(2)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AIMTheme.cream)
+        .overlay(BevelOverlay(raised: false))
+        .padding(.horizontal, 8)
+        .padding(.top, 4)
     }
 
     private var transcript: some View {
@@ -61,7 +144,8 @@ struct SystemConnectView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.white)
             .overlay(BevelOverlay(raised: false))
-            .padding(8)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .background(AIMTheme.client)
     }
 
@@ -72,22 +156,86 @@ struct SystemConnectView: View {
                     .font(AIMTheme.font(size: 14, bold: true))
                     .foregroundStyle(.black)
             }
-            Text("Paste this into Codex, Claude, Antigravity, Cursor, Grok, Grok Bot, or Muse.")
-                .font(AIMTheme.font(size: 11))
+            CaptionTool(title: copiedOneLine ? "Copied 1L" : "1-Line", sunken: copiedOneLine, action: copyOneLiner) {
+                Text("⌘")
+                    .font(AIMTheme.font(size: 13, bold: true))
+                    .foregroundStyle(.black)
+            }
+            if let appURL = activeAppURL {
+                CaptionTool(title: "Open App", action: {
+                    model.copyAndOpenApp(for: model.selectedConnectPreset, roomName: model.selectedConnectRoom)
+                    copied = true
+                    copiedOneLine = false
+                }) {
+                    Text("↗")
+                        .font(AIMTheme.font(size: 14, bold: true))
+                        .foregroundStyle(.black)
+                }
+                .help("Copy prompt and open \(appURL.deletingPathExtension().lastPathComponent)")
+            }
+            Text("Works with Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, Gemini, ChatGPT, Windsurf, Aider, Goose, Cline, OpenCode & more.")
+                .font(AIMTheme.font(size: 10))
                 .foregroundStyle(.black)
                 .lineLimit(2)
             Spacer(minLength: 8)
+            CaptionTool(title: "Open Room", action: openTargetRoom) {
+                Image("Logo")
+                    .resizable()
+                    .interpolation(.high)
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .background(AIMTheme.client)
     }
 
+    private var activeAppURL: URL? {
+        model.selectedConnectPreset.installedAppURL()
+    }
+
+    private var bannerHeadline: String {
+        if !model.connectBannerText.isEmpty {
+            return "✓ " + model.connectBannerText
+        }
+        let preset = model.selectedConnectPreset
+        return "Ready-to-Paste Connect Prompt for \(preset.displayName) (Room: \(model.selectedConnectRoom))"
+    }
+
     private var status: String {
         if model.bridgePort > 0 {
-            return "Local bridge 127.0.0.1:\(model.bridgePort)"
+            let count = model.joinedGuests.count
+            let suffix = count > 0 ? " · \(count) connected" : ""
+            return "Local bridge 127.0.0.1:\(model.bridgePort)\(suffix)"
         }
         return "Local bridge is not listening"
+    }
+
+    private var programMenuItems: [(title: String, key: String, action: () -> Void)] {
+        ConnectPreset.allCases.map { preset in
+            (preset.displayName, "", { selectPreset(preset) })
+        }
+    }
+
+    private var roomMenuItems: [(title: String, key: String, action: () -> Void)] {
+        let names = model.rooms.map(\.name)
+        let list = names.isEmpty ? ["Lobby"] : names
+        return list.map { name in
+            (name, "", {
+                model.selectConnectRoom(name, copyToClipboard: true)
+                copied = true
+                copiedOneLine = false
+            })
+        }
+    }
+
+    private var modeMenuItems: [(title: String, key: String, action: () -> Void)] {
+        ConnectPromptMode.allCases.map { mode in
+            (mode.label, "", {
+                model.selectConnectMode(mode, copyToClipboard: true)
+                copied = true
+                copiedOneLine = false
+            })
+        }
     }
 
     private var systemMessages: [ChatMessage] {
@@ -105,10 +253,29 @@ struct SystemConnectView: View {
         ]
     }
 
-    private func copyPrompt() {
-        let board = NSPasteboard.general
-        board.clearContents()
-        board.setString(model.connectPrompt, forType: .string)
+    private func selectPreset(_ preset: ConnectPreset) {
+        _ = model.selectConnectPreset(preset, copyToClipboard: true)
         copied = true
+        copiedOneLine = false
+    }
+
+    private func copyPrompt() {
+        _ = model.selectConnectPreset(model.selectedConnectPreset, copyToClipboard: true)
+        copied = true
+        copiedOneLine = false
+    }
+
+    private func copyOneLiner() {
+        _ = model.copyOneLiner()
+        copiedOneLine = true
+        copied = false
+    }
+
+    private func openTargetRoom() {
+        if let target = model.rooms.first(where: { $0.name.caseInsensitiveCompare(model.selectedConnectRoom) == .orderedSame }) {
+            model.requestOpen(target.id)
+        } else {
+            model.openLobby()
+        }
     }
 }

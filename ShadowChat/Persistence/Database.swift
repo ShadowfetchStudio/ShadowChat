@@ -155,6 +155,11 @@ final class Database {
         try exec("UPDATE messages SET status = 'cancelled' WHERE status = 'streaming'")
     }
 
+    func clearMessages(roomID: String) throws {
+        try exec("DELETE FROM messages WHERE room_id = ?", bindings: [.text(roomID)])
+        try exec("DELETE FROM sessions WHERE room_id = ?", bindings: [.text(roomID)])
+    }
+
     func sessionID(roomID: String, participant: ParticipantID) throws -> String? {
         let rows: [String] = try query(
             "SELECT session_id FROM sessions WHERE room_id = ? AND participant = ?",

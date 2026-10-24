@@ -116,7 +116,18 @@ struct Presence: Equatable {
     var reason: String
 }
 
+struct ConnectedGuest: Identifiable, Equatable {
+    var screenName: String
+    var program: String
+    var roomName: String
+    var lastSeenAt: Date
+    var isListening: Bool
+
+    var id: String { screenName }
+}
+
 enum Selection: Hashable {
     case buddy(ParticipantID)
+    case guest(String)
     case room(String)
 }

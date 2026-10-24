@@ -26,7 +26,9 @@ final class ConnectBridgeTests: XCTestCase {
         XCTAssertTrue(text.contains("/join"))
         XCTAssertTrue(text.contains("/transcript"))
         XCTAssertTrue(text.contains("/message"))
-        for name in ["Codex", "Claude", "Antigravity", "Cursor", "Grok", "Grok Bot", "Muse"] {
+        XCTAssertTrue(text.contains("/wait"))
+        XCTAssertTrue(text.contains("/say"))
+        for name in ["Codex", "Claude", "Antigravity", "Cursor", "Grok", "Grok Bot", "Muse", "Gemini", "ChatGPT", "Windsurf", "Aider", "Goose", "Cline", "OpenCode"] {
             XCTAssertTrue(text.contains(name), name)
         }
         XCTAssertTrue(text.contains("Do not run unrestricted shell"))
@@ -36,6 +38,146 @@ final class ConnectBridgeTests: XCTestCase {
         XCTAssertEqual(disk, text)
         let decoded = try JSONDecoder().decode(BridgeEndpoint.self, from: Data(contentsOf: directory.appendingPathComponent("bridge.json")))
         XCTAssertEqual(decoded, endpoint)
+        let cliURL = directory.appendingPathComponent("shadowchat-cli")
+        XCTAssertTrue(FileManager.default.isExecutableFile(atPath: cliURL.path))
+    }
+
+    func testProgramSpecificPresetsAndModes() {
+        let endpoint = BridgeEndpoint(host: "127.0.0.1", port: 51234, token: "tok-preset")
+        let occupants = ["Me", "ClaudeCode", "Codex", "Grok", "CursorGrok"]
+
+        for preset in [ConnectPreset.grokBot, .muse, .claude, .codex, .antigravity, .cursor, .gemini, .chatGPT] {
+            let full = ConnectPrompt.render(endpoint: endpoint, occupantNames: occupants, preset: preset, roomName: "Lobby", mode: .full)
+            XCTAssertTrue(full.contains("\"screenName\":\"\(preset.screenName)\""), preset.displayName)
+            XCTAssertTrue(full.contains("screenName=\(preset.screenName)"), preset.displayName)
+            XCTAssertTrue(full.contains("hello from \(preset.screenName)"), preset.displayName)
+
+            let oneLine = ConnectPrompt.render(endpoint: endpoint, occupantNames: occupants, preset: preset, roomName: "Lobby", mode: .oneLiner)
+            XCTAssertTrue(oneLine.contains("\"screenName\":\"\(preset.screenName)\""), preset.displayName)
+            XCTAssertTrue(oneLine.contains("/wait?token=tok-preset"), preset.displayName)
+
+            let web = ConnectPrompt.render(endpoint: endpoint, occupantNames: occupants, preset: preset, roomName: "Lobby", mode: .webFetch)
+            XCTAssertTrue(web.contains("/join?token=tok-preset&screenName=\(preset.screenName)"), preset.displayName)
+            XCTAssertTrue(web.contains("/say?token=tok-preset&screenName=\(preset.screenName)"), preset.displayName)
+        }
+    }
+
+    func testCanonicalNamesForAllSupportedPrograms() {
+        let pairs: [(String, String)] = [
+            ("Grok Bot", "GrokBot"),
+            ("grok-bot", "GrokBot"),
+            ("grok_bot", "GrokBot"),
+            ("Muse", "Muse"),
+            ("Meta Muse", "Muse"),
+            ("Claude", "Claude"),
+            ("Claude Code", "Claude"),
+            ("Codex", "Codex"),
+            ("Antigravity", "Antigravity"),
+            ("agy", "Antigravity"),
+            ("Cursor", "Cursor"),
+            ("CursorGrok", "Cursor"),
+            ("Gemini", "Gemini"),
+            ("ChatGPT", "ChatGPT"),
+            ("Windsurf", "Windsurf"),
+            ("Aider", "Aider"),
+            ("Goose", "Goose"),
+            ("Cline", "Cline"),
+            ("OpenCode", "OpenCode"),
+            ("Warp", "Warp"),
+            ("Zed", "Zed"),
+            ("Copilot", "Copilot"),
+            ("DeepSeek", "DeepSeek"),
+            ("Perplexity", "Perplexity")
+        ]
+        for (input, expected) in pairs {
+            XCTAssertEqual(BridgeNames.canonical(screenName: input, program: ""), expected, input)
+        }
+    }
+
+    func testPlainBodyAndGetSayAndHeaderAuth() throws {
+        let lobby = try database.ensureLobby()
+        let token = "tok-plain-123"
+
+        // 1. Plain-text body with apostrophes and quotes via POST /message?token=...&screenName=GrokBot&room=Lobby
+        let rawQuoteText = "It's Grok Bot & Muse saying \"hello\"!"
+        let plainReq = BridgeHTTPRequest(
+            method: "POST",
+            path: "/message",
+            query: ["token": token, "screenName": "Grok Bot", "room": "Lobby"],
+            body: Data(rawQuoteText.utf8)
+        )
+        let plainResp = BridgeRouter.handle(request: plainReq, expectedToken: token) { action in
+            guard case .post(let screenName, let text, let room) = action else {
+                return BridgeHTTPResponse(status: 500, contentType: "text/plain; charset=utf-8", body: "wrong action")
+            }
+            let msg = try! BridgeInbox.insert(database: self.database, rooms: [lobby], screenName: screenName, text: text, roomName: room)
+            return BridgeHTTPResponse(status: 200, contentType: "application/json; charset=utf-8", body: "{\"ok\":true,\"screenName\":\"\(msg.senderName)\"}")
+        }
+        XCTAssertEqual(plainResp.status, 200)
+
+        // 2. URL-only GET /say for tools without POST/shell
+        let getSayReq = BridgeHTTPRequest(
+            method: "GET",
+            path: "/say",
+            query: ["token": token, "screenName": "Muse", "room": "Lobby", "text": "hello via GET"],
+            body: Data()
+        )
+        let getSayResp = BridgeRouter.handle(request: getSayReq, expectedToken: token) { action in
+            guard case .post(let screenName, let text, let room) = action else {
+                return BridgeHTTPResponse(status: 500, contentType: "text/plain; charset=utf-8", body: "wrong action")
+            }
+            _ = try! BridgeInbox.insert(database: self.database, rooms: [lobby], screenName: screenName, text: text, roomName: room)
+            return BridgeHTTPResponse(status: 200, contentType: "application/json; charset=utf-8", body: "{\"ok\":true}")
+        }
+        XCTAssertEqual(getSayResp.status, 200)
+
+        // 3. OPTIONS CORS preflight
+        let optionsReq = BridgeHTTPRequest(method: "OPTIONS", path: "/message", query: [:], body: Data())
+        let optionsResp = BridgeRouter.handle(request: optionsReq, expectedToken: token) { _ in
+            BridgeHTTPResponse(status: 500, contentType: "text/plain; charset=utf-8", body: "unused")
+        }
+        XCTAssertEqual(optionsResp.status, 200)
+        let wire = String(decoding: optionsResp.serialized, as: UTF8.self)
+        XCTAssertTrue(wire.contains("Access-Control-Allow-Origin: *"))
+
+        let stored = try database.messages(roomID: lobby.id)
+        XCTAssertEqual(stored.count, 2)
+        XCTAssertEqual(stored[0].senderName, "GrokBot")
+        XCTAssertEqual(stored[0].body, rawQuoteText)
+        XCTAssertEqual(stored[1].senderName, "Muse")
+        XCTAssertEqual(stored[1].body, "hello via GET")
+    }
+
+    func testShouldReplyPolicyPreventsAgentLoopsAndHonorsMentions() {
+        let now = Date()
+        let joined = ["GrokBot", "Muse", "Antigravity"]
+
+        // 1. GrokBot joins and says hello -> shouldReply for GrokBot is false, and for Muse is false (since GrokBot didn't mention Muse)
+        let m1 = ChatMessage(id: "1", roomID: "r", sender: .me, senderName: "GrokBot", body: "hello from GrokBot", rtf: nil, status: .complete, createdAt: now)
+        XCTAssertFalse(BridgeTurnPolicy.shouldReply(screenName: "GrokBot", messages: [m1], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertFalse(BridgeTurnPolicy.shouldReply(screenName: "Muse", messages: [m1], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+
+        // 2. Human speaks to the room without restricting mentions -> all connected guests should reply
+        let m2 = ChatMessage(id: "2", roomID: "r", sender: .me, senderName: "Me", body: "What do you all think?", rtf: nil, status: .complete, createdAt: now)
+        XCTAssertTrue(BridgeTurnPolicy.shouldReply(screenName: "GrokBot", messages: [m1, m2], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertTrue(BridgeTurnPolicy.shouldReply(screenName: "Muse", messages: [m1, m2], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertTrue(BridgeTurnPolicy.shouldReply(screenName: "Antigravity", messages: [m1, m2], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+
+        // 3. Muse replies first -> GrokBot still hasn't replied to Me's message, so GrokBot is still true, while Muse is now false!
+        let m3 = ChatMessage(id: "3", roomID: "r", sender: .me, senderName: "Muse", body: "I like the classic AIM design.", rtf: nil, status: .complete, createdAt: now)
+        XCTAssertFalse(BridgeTurnPolicy.shouldReply(screenName: "Muse", messages: [m1, m2, m3], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertTrue(BridgeTurnPolicy.shouldReply(screenName: "GrokBot", messages: [m1, m2, m3], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+
+        // 4. Human specifically mentions @Muse -> only Muse should reply, GrokBot and Antigravity stay quiet
+        let m4 = ChatMessage(id: "4", roomID: "r", sender: .me, senderName: "GrokBot", body: "Agreed!", rtf: nil, status: .complete, createdAt: now)
+        let m5 = ChatMessage(id: "5", roomID: "r", sender: .me, senderName: "Me", body: "@Muse tell me more", rtf: nil, status: .complete, createdAt: now)
+        XCTAssertTrue(BridgeTurnPolicy.shouldReply(screenName: "Muse", messages: [m1, m2, m3, m4, m5], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertFalse(BridgeTurnPolicy.shouldReply(screenName: "GrokBot", messages: [m1, m2, m3, m4, m5], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertFalse(BridgeTurnPolicy.shouldReply(screenName: "Antigravity", messages: [m1, m2, m3, m4, m5], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+
+        // 5. Muse replies and explicitly mentions @Antigravity -> Antigravity wakes up!
+        let m6 = ChatMessage(id: "6", roomID: "r", sender: .me, senderName: "Muse", body: "Sure! @Antigravity what do you think?", rtf: nil, status: .complete, createdAt: now)
+        XCTAssertTrue(BridgeTurnPolicy.shouldReply(screenName: "Antigravity", messages: [m1, m2, m3, m4, m5, m6], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
     }
 
     func testWrongTokenIsRejectedAndValidPostIsStored() throws {
@@ -159,5 +301,55 @@ final class ConnectBridgeTests: XCTestCase {
         let stored = try database.messages(roomID: lobby.id)
         XCTAssertEqual(stored.count, 39)
         XCTAssertTrue(stored.allSatisfy { $0.senderName == "Muse" })
+    }
+
+    @MainActor
+    func testLiveAppModelBridgeWaitWakeupStatusAndPrompt() async throws {
+        let model = AppModel(database: database)
+        defer { model.stopAll() }
+        let port = model.bridgePort
+        XCTAssertGreaterThan(port, 0)
+        let token = model.currentEndpoint().token
+        let session = URLSession(configuration: .ephemeral)
+
+        // 1. Join via GET /join as GrokBot
+        let joinURL = URL(string: "http://127.0.0.1:\(port)/join?token=\(token)&screenName=GrokBot&program=Grok%20Bot")!
+        let (joinData, joinResp) = try await session.data(from: joinURL)
+        XCTAssertEqual((joinResp as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertTrue(String(decoding: joinData, as: UTF8.self).contains("\"GrokBot\""))
+        XCTAssertTrue(model.isGuestConnected("GrokBot"))
+
+        // 2. GrokBot says hello so its lastOwnIndex is at the tail of Lobby
+        let helloURL = URL(string: "http://127.0.0.1:\(port)/say?token=\(token)&screenName=GrokBot&room=Lobby&text=hello")!
+        let (_, helloResp) = try await session.data(from: helloURL)
+        XCTAssertEqual((helloResp as? HTTPURLResponse)?.statusCode, 200)
+
+        // 3. Start a long-poll /wait task for GrokBot (timeout=5s), then send a human message 120ms later
+        let started = Date()
+        let waitURL = URL(string: "http://127.0.0.1:\(port)/wait?token=\(token)&room=Lobby&screenName=GrokBot&timeout=5")!
+        async let waitPair = session.data(from: waitURL)
+
+        try await Task.sleep(nanoseconds: 120_000_000)
+        let lobbyID = try XCTUnwrap(model.rooms.first(where: { $0.kind == .lobby })?.id)
+        model.sendHuman(roomID: lobbyID, plain: "@GrokBot what is the status?", rtf: nil)
+
+        let (waitData, waitResp) = try await waitPair
+        let elapsed = Date().timeIntervalSince(started)
+        XCTAssertEqual((waitResp as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertLessThan(elapsed, 2.0)
+        let waitText = String(decoding: waitData, as: UTF8.self)
+        XCTAssertTrue(waitText.contains("should_reply: yes"), waitText)
+        XCTAssertTrue(waitText.contains("@GrokBot what is the status?"), waitText)
+
+        // 4. Verify /status and /prompt?program=Muse
+        let statusURL = URL(string: "http://127.0.0.1:\(port)/status?token=\(token)")!
+        let (statusData, statusResp) = try await session.data(from: statusURL)
+        XCTAssertEqual((statusResp as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertTrue(String(decoding: statusData, as: UTF8.self).contains("GrokBot"))
+
+        let promptURL = URL(string: "http://127.0.0.1:\(port)/prompt?token=\(token)&program=Muse&room=Lobby")!
+        let (promptData, promptResp) = try await session.data(from: promptURL)
+        XCTAssertEqual((promptResp as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertTrue(String(decoding: promptData, as: UTF8.self).contains("\"screenName\":\"Muse\""))
     }
 }

@@ -22,12 +22,18 @@ final class AppModel: ObservableObject {
     @Published var connectPrompt = ""
     @Published var bridgePort = 0
     @Published var connectIssuedAt = Date()
+    @Published var joinedGuests: [String] = []
+    @Published var connectedGuests: [ConnectedGuest] = []
+    @Published var selectedConnectPreset: ConnectPreset = .universal
+    @Published var selectedConnectRoom: String = "Lobby"
+    @Published var selectedConnectMode: ConnectPromptMode = .full
+    @Published var connectBannerText: String = ""
     let version: String
 
     let database: Database
     private var bridgeServer: LocalBridgeServer?
     private var bridgeToken = ""
-    private var joinedGuests: [String] = []
+    private let bridgeWaitHub = BridgeWaitHub()
     private var handles: [String: TurnHandle] = [:]
     private var loops: [String: Task<Void, Never>] = [:]
     private var signals: [String: AsyncSignal] = [:]
@@ -86,6 +92,10 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.set(name, forKey: "ShadowChat.screenName")
         signedOn = true
         refreshPresence()
+        openLobby()
+    }
+
+    func openLobby() {
         if let lobby = rooms.first(where: { $0.kind == .lobby }) {
             requestOpen(lobby.id)
         }
@@ -148,7 +158,7 @@ final class AppModel: ObservableObject {
         append(message)
         guard let room = room(roomID) else { return }
         var engine = engines[roomID] ?? TurnEngine(phase: room.runState)
-        let plan = TurnPlanner.plan(
+        var plan = TurnPlanner.plan(
             TurnPlan(
                 sender: .me,
                 text: text,
@@ -158,6 +168,9 @@ final class AppModel: ObservableObject {
                 roster: buddies
             )
         )
+        if plan.isEmpty, engine.phase == .running, let direct = directBuddy(for: room) {
+            plan = [direct]
+        }
         engine.enqueue(plan)
         engines[roomID] = engine
         ensureLoop(roomID)
@@ -170,7 +183,7 @@ final class AppModel: ObservableObject {
         if engine.active == nil, engine.queue.isEmpty,
            let text = TurnPlanner.unansweredHumanText(in: messages[roomID] ?? []),
            let room = room(roomID) {
-            plan = TurnPlanner.plan(
+            var planned = TurnPlanner.plan(
                 TurnPlan(
                     sender: .me,
                     text: text,
@@ -180,6 +193,10 @@ final class AppModel: ObservableObject {
                     roster: buddies
                 )
             )
+            if planned.isEmpty, let direct = directBuddy(for: room) {
+                planned = [direct]
+            }
+            plan = planned
         } else {
             plan = []
         }
@@ -191,6 +208,11 @@ final class AppModel: ObservableObject {
         }
         ensureLoop(roomID)
         signal(for: roomID).notify()
+    }
+
+    func startRoundtable(roomID: String) {
+        setRoundtable(roomID: roomID, on: true)
+        start(roomID: roomID)
     }
 
     func pause(roomID: String) {
@@ -220,8 +242,16 @@ final class AppModel: ObservableObject {
         for room in rooms {
             stop(roomID: room.id)
         }
+        bridgeWaitHub.stopAll()
         bridgeServer?.stop()
         bridgeServer = nil
+    }
+
+    func clearRoomMessages(roomID: String) {
+        stop(roomID: roomID)
+        try? database.clearMessages(roomID: roomID)
+        messages[roomID] = []
+        bridgeWaitHub.notify(roomID: roomID)
     }
 
     func setRoundtable(roomID: String, on: Bool) {
@@ -345,6 +375,7 @@ final class AppModel: ObservableObject {
         if !key.isEmpty {
             saveAPIKey(key)
         }
+        rebuildConnectPrompt()
     }
 
     func saveAPIKey(_ value: String) {
@@ -379,7 +410,107 @@ final class AppModel: ObservableObject {
         let used = turnsUsed(roomID: roomID)
         let speaker = engine?.active.map { " · \($0.screenName)" } ?? ""
         let files = room.allowFileChanges ? " · files on" : ""
-        return "\(room.name)'s Warning Level: \(phase) · turns \(used)/\(room.turnLimit)\(speaker)\(files)"
+        let guests = joinedGuests.isEmpty ? "" : " · bridge: \(joinedGuests.joined(separator: ", "))"
+        return "\(room.name)'s Warning Level: \(phase) · turns \(used)/\(room.turnLimit)\(speaker)\(files)\(guests)"
+    }
+
+    // MARK: - Connect Prompt & Preset Selection
+
+    func currentEndpoint() -> BridgeEndpoint {
+        BridgeEndpoint(host: "127.0.0.1", port: bridgePort, token: bridgeToken)
+    }
+
+    func occupantNames() -> [String] {
+        var names = [screenName] + ParticipantID.agentOrder.map(\.screenName)
+        for guest in joinedGuests where !names.contains(where: { $0.caseInsensitiveCompare(guest) == .orderedSame }) {
+            names.append(guest)
+        }
+        return names
+    }
+
+    func rebuildConnectPrompt() {
+        guard bridgePort > 0 else { return }
+        let endpoint = currentEndpoint()
+        connectPrompt = ConnectPrompt.render(
+            endpoint: endpoint,
+            occupantNames: occupantNames(),
+            preset: selectedConnectPreset,
+            roomName: selectedConnectRoom,
+            mode: selectedConnectMode
+        )
+    }
+
+    @discardableResult
+    func selectConnectPreset(_ preset: ConnectPreset, roomName: String? = nil, mode: ConnectPromptMode? = nil, copyToClipboard: Bool = true) -> String {
+        selectedConnectPreset = preset
+        if let roomName, !roomName.isEmpty {
+            selectedConnectRoom = roomName
+        }
+        if let mode {
+            selectedConnectMode = mode
+        }
+        rebuildConnectPrompt()
+        if copyToClipboard {
+            let board = NSPasteboard.general
+            board.clearContents()
+            board.setString(connectPrompt, forType: .string)
+            connectBannerText = "Copied \(preset.displayName) prompt for \(selectedConnectRoom)! Paste (⌘V) into \(preset.displayName)."
+        }
+        return connectPrompt
+    }
+
+    func selectConnectRoom(_ roomName: String, copyToClipboard: Bool = false) {
+        selectedConnectRoom = roomName
+        rebuildConnectPrompt()
+        if copyToClipboard {
+            _ = selectConnectPreset(selectedConnectPreset, roomName: roomName, copyToClipboard: true)
+        }
+    }
+
+    func selectConnectMode(_ mode: ConnectPromptMode, copyToClipboard: Bool = false) {
+        selectedConnectMode = mode
+        rebuildConnectPrompt()
+        if copyToClipboard {
+            _ = selectConnectPreset(selectedConnectPreset, mode: mode, copyToClipboard: true)
+        }
+    }
+
+    @discardableResult
+    func copyOneLiner(preset: ConnectPreset? = nil, roomName: String? = nil) -> String {
+        let targetPreset = preset ?? selectedConnectPreset
+        let targetRoom = roomName ?? selectedConnectRoom
+        let command = ConnectPrompt.oneLineCommand(endpoint: currentEndpoint(), preset: targetPreset, roomName: targetRoom)
+        let board = NSPasteboard.general
+        board.clearContents()
+        board.setString(command, forType: .string)
+        connectBannerText = "Copied 1-line curl command for \(targetPreset.displayName) (\(targetRoom))!"
+        return command
+    }
+
+    func copyAndOpenApp(for preset: ConnectPreset, roomName: String? = nil) {
+        _ = selectConnectPreset(preset, roomName: roomName, copyToClipboard: true)
+        if let appURL = preset.installedAppURL() {
+            let config = NSWorkspace.OpenConfiguration()
+            config.activates = true
+            NSWorkspace.shared.openApplication(at: appURL, configuration: config, completionHandler: nil)
+            connectBannerText = "Copied \(preset.displayName) prompt & opened \(appURL.deletingPathExtension().lastPathComponent)! Press ⌘V to paste."
+        }
+    }
+
+    func isGuestConnected(_ screenNameOrPreset: String) -> Bool {
+        guard let canonical = BridgeNames.canonical(screenName: screenNameOrPreset, program: "") else { return false }
+        return joinedGuests.contains { $0.caseInsensitiveCompare(canonical) == .orderedSame }
+    }
+
+    // MARK: - Internal Helpers
+
+    private func directBuddy(for room: Room) -> ParticipantID? {
+        guard room.projectPath == nil, room.kind != .lobby else { return nil }
+        guard let buddy = buddies.first(where: { $0.id.screenName.caseInsensitiveCompare(room.name) == .orderedSame }),
+              buddy.enabled && buddy.online else {
+            return nil
+        }
+        return buddy.id
     }
 
     private func save(_ room: Room) {
@@ -392,6 +523,9 @@ final class AppModel: ObservableObject {
         var list = messages[message.roomID] ?? []
         list.append(message)
         messages[message.roomID] = list
+        if message.status != .streaming {
+            bridgeWaitHub.notify(roomID: message.roomID)
+        }
     }
 
     private func updateStreaming(roomID: String, messageID: String, text: String, status: MessageStatus) {
@@ -401,6 +535,9 @@ final class AppModel: ObservableObject {
         list[index].status = status
         messages[roomID] = list
         try? database.updateMessage(id: messageID, body: text, status: status)
+        if status != .streaming {
+            bridgeWaitHub.notify(roomID: roomID)
+        }
     }
 
     private func ensureLoop(_ roomID: String) {
@@ -501,9 +638,11 @@ final class AppModel: ObservableObject {
 
     private func turnsUsed(roomID: String) -> Int {
         let list = messages[roomID] ?? []
-        guard let index = list.lastIndex(where: { $0.sender == .me }) else { return 0 }
+        guard let index = list.lastIndex(where: { BridgeTurnPolicy.isHuman($0, humanScreenName: screenName, joinedGuests: joinedGuests) }) else {
+            return 0
+        }
         return list.suffix(from: list.index(after: index)).filter { message in
-            ParticipantID.agentOrder.contains(message.sender) && message.status != .error
+            !BridgeTurnPolicy.isHuman(message, humanScreenName: screenName, joinedGuests: joinedGuests) && message.status != .error
         }.count
     }
 
@@ -535,20 +674,17 @@ final class AppModel: ObservableObject {
         )
     }
 
+    // MARK: - Localhost Bridge Server
 
     private func startConnectBridge() {
         let token = BridgeToken.make()
         bridgeToken = token
+        let waitHub = bridgeWaitHub
         let server = LocalBridgeServer { [weak self] request in
             guard let self else {
                 return BridgeHTTPResponse(status: 503, contentType: "text/plain; charset=utf-8", body: "unavailable")
             }
-            if Thread.isMainThread {
-                return MainActor.assumeIsolated { self.routeBridge(request) }
-            }
-            return DispatchQueue.main.sync {
-                MainActor.assumeIsolated { self.routeBridge(request) }
-            }
+            return self.handleBridgeRequestOffMain(request, waitHub: waitHub)
         }
         do {
             try server.start()
@@ -566,7 +702,224 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func routeBridge(_ request: BridgeHTTPRequest) -> BridgeHTTPResponse {
+    nonisolated private func runOnMain<T>(_ block: @MainActor () -> T) -> T {
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated { block() }
+        }
+        return DispatchQueue.main.sync {
+            MainActor.assumeIsolated { block() }
+        }
+    }
+
+    nonisolated private func handleBridgeRequestOffMain(_ request: BridgeHTTPRequest, waitHub: BridgeWaitHub) -> BridgeHTTPResponse {
+        if request.path == "/wait" && (request.method == "GET" || request.method == "POST") && !Thread.isMainThread {
+            let initial = runOnMain {
+                self.prepareBridgeWait(request: request)
+            }
+            switch initial {
+            case .immediate(let response):
+                return response
+            case .pending(let roomID, let roomName, let screenName, let after, let baselineSeq, var generation, let timeout):
+                let deadline = Date().addingTimeInterval(TimeInterval(timeout))
+                while Date() < deadline {
+                    let woke = waitHub.wait(roomID: roomID, after: generation, until: deadline)
+                    if !woke { break }
+                    let check = runOnMain {
+                        self.checkBridgeWaitWakeup(
+                            roomID: roomID,
+                            roomName: roomName,
+                            screenName: screenName,
+                            after: after,
+                            baselineSeq: baselineSeq
+                        )
+                    }
+                    switch check {
+                    case .ready(let response):
+                        return response
+                    case .keepWaiting(let nextGen):
+                        generation = nextGen
+                    }
+                }
+                return runOnMain {
+                    self.finalizeBridgeWaitTimeout(
+                        roomID: roomID,
+                        roomName: roomName,
+                        screenName: screenName,
+                        after: after,
+                        baselineSeq: baselineSeq
+                    )
+                }
+            }
+        }
+        return runOnMain {
+            self.routeBridge(request)
+        }
+    }
+
+    private enum WaitPreparation {
+        case immediate(BridgeHTTPResponse)
+        case pending(roomID: String, roomName: String, screenName: String, after: Int?, baselineSeq: Int, generation: Int, timeout: Int)
+    }
+
+    private enum WaitWakeupCheck {
+        case ready(BridgeHTTPResponse)
+        case keepWaiting(Int)
+    }
+
+    private func prepareBridgeWait(request: BridgeHTTPRequest) -> WaitPreparation {
+        let info = BridgeRouter.mergedFields(request)
+        let token = BridgeRouter.resolveToken(info: info, headers: request.headers)
+        guard BridgeInbox.authorize(token, expected: bridgeToken) else {
+            return .immediate(.refused)
+        }
+        let rawName = BridgeRouter.firstNonEmpty(info["screenName"], info["sender"], info["name"], info["program"]) ?? ""
+        let roomName = BridgeRouter.firstNonEmpty(info["room"]) ?? "Lobby"
+        let after = info["after"].flatMap { Int($0) }
+        let rawTimeout = info["timeout"].flatMap { Int($0) } ?? 25
+        let timeout = min(max(rawTimeout, 0), 90)
+
+        guard let room = roomNamed(roomName) else {
+            return .immediate(BridgeHTTPResponse(status: 404, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"unknown room\"}"))
+        }
+        let canonical = BridgeNames.canonical(screenName: rawName, program: "") ?? ""
+        if !canonical.isEmpty {
+            touchGuest(screenName: canonical, program: canonical, roomName: room.name, isListening: true)
+        }
+        let roomMessages = messages[room.id] ?? []
+        let currentSeq = roomMessages.count
+        let shouldReplyNow = BridgeTurnPolicy.shouldReply(
+            screenName: canonical,
+            messages: roomMessages,
+            after: after,
+            humanScreenName: screenName,
+            joinedGuests: joinedGuests,
+            turnLimit: room.turnLimit
+        )
+        if shouldReplyNow || timeout <= 0 {
+            let response = formatWaitResponse(
+                room: room,
+                messages: roomMessages,
+                after: after,
+                baselineSeq: after ?? max(0, currentSeq - 8),
+                shouldReply: shouldReplyNow,
+                timedOut: !shouldReplyNow
+            )
+            return .immediate(response)
+        }
+        let generation = bridgeWaitHub.currentGeneration(for: room.id)
+        return .pending(
+            roomID: room.id,
+            roomName: room.name,
+            screenName: canonical,
+            after: after,
+            baselineSeq: currentSeq,
+            generation: generation,
+            timeout: timeout
+        )
+    }
+
+    private func checkBridgeWaitWakeup(
+        roomID: String,
+        roomName: String,
+        screenName: String,
+        after: Int?,
+        baselineSeq: Int
+    ) -> WaitWakeupCheck {
+        guard let room = room(roomID) else {
+            return .ready(BridgeHTTPResponse(status: 404, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"unknown room\"}"))
+        }
+        if !screenName.isEmpty {
+            touchGuest(screenName: screenName, program: screenName, roomName: roomName, isListening: true)
+        }
+        let roomMessages = messages[roomID] ?? []
+        let shouldReplyNow = BridgeTurnPolicy.shouldReply(
+            screenName: screenName,
+            messages: roomMessages,
+            after: after ?? baselineSeq,
+            humanScreenName: self.screenName,
+            joinedGuests: joinedGuests,
+            turnLimit: room.turnLimit
+        )
+        if shouldReplyNow || (screenName.isEmpty && roomMessages.count > baselineSeq) {
+            return .ready(
+                formatWaitResponse(
+                    room: room,
+                    messages: roomMessages,
+                    after: after,
+                    baselineSeq: baselineSeq,
+                    shouldReply: shouldReplyNow,
+                    timedOut: false
+                )
+            )
+        }
+        return .keepWaiting(bridgeWaitHub.currentGeneration(for: roomID))
+    }
+
+    private func finalizeBridgeWaitTimeout(
+        roomID: String,
+        roomName: String,
+        screenName: String,
+        after: Int?,
+        baselineSeq: Int
+    ) -> BridgeHTTPResponse {
+        guard let room = room(roomID) else {
+            return BridgeHTTPResponse(status: 404, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"unknown room\"}")
+        }
+        if !screenName.isEmpty {
+            touchGuest(screenName: screenName, program: screenName, roomName: roomName, isListening: false)
+        }
+        let roomMessages = messages[roomID] ?? []
+        let shouldReplyNow = BridgeTurnPolicy.shouldReply(
+            screenName: screenName,
+            messages: roomMessages,
+            after: after ?? baselineSeq,
+            humanScreenName: self.screenName,
+            joinedGuests: joinedGuests,
+            turnLimit: room.turnLimit
+        )
+        return formatWaitResponse(
+            room: room,
+            messages: roomMessages,
+            after: after,
+            baselineSeq: baselineSeq,
+            shouldReply: shouldReplyNow,
+            timedOut: !shouldReplyNow
+        )
+    }
+
+    private func formatWaitResponse(
+        room: Room,
+        messages: [ChatMessage],
+        after: Int?,
+        baselineSeq: Int,
+        shouldReply: Bool,
+        timedOut: Bool
+    ) -> BridgeHTTPResponse {
+        let seq = messages.count
+        let sliceStart: Int
+        if let after, after >= 0, after < seq {
+            sliceStart = after
+        } else if baselineSeq < seq {
+            sliceStart = max(0, baselineSeq - 2)
+        } else {
+            sliceStart = max(0, seq - 12)
+        }
+        let lines = messages[sliceStart...].suffix(25).map { message -> String in
+            let flat = message.body.replacingOccurrences(of: "\n", with: " ")
+            let clipped = flat.count > 500 ? String(flat.prefix(500)) + "…" : flat
+            return "\(message.senderName): \(clipped)"
+        }
+        let header = [
+            "room: \(room.name)",
+            "seq: \(seq)",
+            "status: \(timedOut ? "idle" : "message")",
+            "should_reply: \(shouldReply ? "yes" : "no")"
+        ]
+        let text = (header + lines).joined(separator: "\n")
+        return BridgeHTTPResponse(status: 200, contentType: "text/plain; charset=utf-8", body: text + "\n")
+    }
+
+    func routeBridge(_ request: BridgeHTTPRequest) -> BridgeHTTPResponse {
         BridgeRouter.handle(request: request, expectedToken: bridgeToken) { action in
             switch action {
             case .join(let screenName, let program):
@@ -575,7 +928,61 @@ final class AppModel: ObservableObject {
                 return self.bridgeTranscript(roomName: room)
             case .post(let screenName, let text, let room):
                 return self.postGuest(screenName: screenName, text: text, roomName: room)
+            case .wait(let screenName, let room, let after, _):
+                guard let targetRoom = self.roomNamed(room) else {
+                    return BridgeHTTPResponse(status: 404, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"unknown room\"}")
+                }
+                let canonical = BridgeNames.canonical(screenName: screenName, program: "") ?? ""
+                if !canonical.isEmpty {
+                    self.touchGuest(screenName: canonical, program: canonical, roomName: targetRoom.name, isListening: true)
+                }
+                let roomMessages = self.messages[targetRoom.id] ?? []
+                let shouldReplyNow = BridgeTurnPolicy.shouldReply(
+                    screenName: canonical,
+                    messages: roomMessages,
+                    after: after,
+                    humanScreenName: self.screenName,
+                    joinedGuests: self.joinedGuests,
+                    turnLimit: targetRoom.turnLimit
+                )
+                return self.formatWaitResponse(
+                    room: targetRoom,
+                    messages: roomMessages,
+                    after: after,
+                    baselineSeq: after ?? max(0, roomMessages.count - 8),
+                    shouldReply: shouldReplyNow,
+                    timedOut: !shouldReplyNow
+                )
+            case .status:
+                return self.bridgeStatus()
+            case .prompt(let program, let room):
+                return self.bridgePrompt(program: program, roomName: room)
             }
+        }
+    }
+
+    private func touchGuest(screenName: String, program: String, roomName: String, isListening: Bool) {
+        if !joinedGuests.contains(where: { $0.caseInsensitiveCompare(screenName) == .orderedSame }) {
+            joinedGuests.append(screenName)
+        }
+        let now = Date()
+        if let index = connectedGuests.firstIndex(where: { $0.screenName.caseInsensitiveCompare(screenName) == .orderedSame }) {
+            connectedGuests[index].lastSeenAt = now
+            connectedGuests[index].roomName = roomName
+            connectedGuests[index].isListening = isListening
+            if !program.isEmpty {
+                connectedGuests[index].program = program
+            }
+        } else {
+            connectedGuests.append(
+                ConnectedGuest(
+                    screenName: screenName,
+                    program: program.isEmpty ? screenName : program,
+                    roomName: roomName,
+                    lastSeenAt: now,
+                    isListening: isListening
+                )
+            )
         }
     }
 
@@ -583,9 +990,7 @@ final class AppModel: ObservableObject {
         guard let name = BridgeNames.canonical(screenName: screenName, program: program) else {
             return BridgeHTTPResponse(status: 400, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"screen name required\"}")
         }
-        if !joinedGuests.contains(name) {
-            joinedGuests.append(name)
-        }
+        touchGuest(screenName: name, program: program.isEmpty ? name : program, roomName: "Lobby", isListening: true)
         let escaped = BridgeRouter.jsonString(name)
         return BridgeHTTPResponse(status: 200, contentType: "application/json; charset=utf-8", body: "{\"ok\":true,\"screenName\":\"\(escaped)\"}")
     }
@@ -594,12 +999,13 @@ final class AppModel: ObservableObject {
         guard let room = roomNamed(roomName) else {
             return BridgeHTTPResponse(status: 404, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"unknown room\"}")
         }
-        let lines = (messages[room.id] ?? []).suffix(40).map { message -> String in
+        let roomMessages = messages[room.id] ?? []
+        let lines = roomMessages.suffix(40).map { message -> String in
             let flat = message.body.replacingOccurrences(of: "\n", with: " ")
             let clipped = flat.count > 500 ? String(flat.prefix(500)) + "…" : flat
             return "\(message.senderName): \(clipped)"
         }
-        let text = (["room: \(room.name)"] + lines).joined(separator: "\n")
+        let text = (["room: \(room.name)", "seq: \(roomMessages.count)"] + lines).joined(separator: "\n")
         return BridgeHTTPResponse(status: 200, contentType: "text/plain; charset=utf-8", body: text + "\n")
     }
 
@@ -612,15 +1018,54 @@ final class AppModel: ObservableObject {
                 text: text,
                 roomName: roomName
             )
+            touchGuest(screenName: message.senderName, program: message.senderName, roomName: roomName, isListening: true)
             append(message)
             planGuest(roomID: message.roomID, text: message.body)
             let escaped = BridgeRouter.jsonString(message.senderName)
-            return BridgeHTTPResponse(status: 200, contentType: "application/json; charset=utf-8", body: "{\"ok\":true,\"screenName\":\"\(escaped)\"}")
+            let seq = messages[message.roomID]?.count ?? 0
+            return BridgeHTTPResponse(status: 200, contentType: "application/json; charset=utf-8", body: "{\"ok\":true,\"screenName\":\"\(escaped)\",\"seq\":\(seq)}")
         } catch BridgeFailure.unknownRoom {
             return BridgeHTTPResponse(status: 404, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"unknown room\"}")
         } catch {
             return BridgeHTTPResponse(status: 400, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"rejected\"}")
         }
+    }
+
+    private func bridgeStatus() -> BridgeHTTPResponse {
+        let roomsArray = rooms.map { room -> [String: Any] in
+            [
+                "name": room.name,
+                "kind": room.kind.rawValue,
+                "runState": (engines[room.id]?.phase ?? room.runState).rawValue,
+                "roundtable": room.roundtable,
+                "turnLimit": room.turnLimit,
+                "seq": messages[room.id]?.count ?? 0
+            ]
+        }
+        let payload: [String: Any] = [
+            "ok": true,
+            "host": "127.0.0.1",
+            "port": bridgePort,
+            "screenName": screenName,
+            "joinedGuests": joinedGuests,
+            "rooms": roomsArray
+        ]
+        let data = (try? JSONSerialization.data(withJSONObject: payload)) ?? Data("{\"ok\":true}".utf8)
+        let body = String(data: data, encoding: .utf8) ?? "{\"ok\":true}"
+        return BridgeHTTPResponse(status: 200, contentType: "application/json; charset=utf-8", body: body)
+    }
+
+    private func bridgePrompt(program: String, roomName: String) -> BridgeHTTPResponse {
+        let preset = ConnectPreset.matching(program)
+        let safeRoom = roomNamed(roomName)?.name ?? "Lobby"
+        let rendered = ConnectPrompt.render(
+            endpoint: currentEndpoint(),
+            occupantNames: occupantNames(),
+            preset: preset,
+            roomName: safeRoom,
+            mode: .full
+        )
+        return BridgeHTTPResponse(status: 200, contentType: "text/plain; charset=utf-8", body: rendered + "\n")
     }
 
     private func planGuest(roomID: String, text: String) {

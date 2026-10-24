@@ -3,9 +3,11 @@ import SwiftUI
 
 struct ChatWindowView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.openWindow) private var openWindow
     let roomID: String
     @StateObject private var compose = ComposeController()
     @State private var pointSize: CGFloat = 12
+    @State private var copiedLabel: String?
 
     private var room: Room? { model.room(roomID) }
 
@@ -14,6 +16,9 @@ struct ChatWindowView: View {
             ClassicTitleBar(title: windowTitle)
             VStack(spacing: 0) {
                 menuBar
+                if isStopped {
+                    stoppedBanner
+                }
                 transcript
                 formatBar
                 composeBox
@@ -26,7 +31,7 @@ struct ChatWindowView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(AIMTheme.frameBlue)
         .overlay(WindowConfigurator(title: windowTitle).frame(width: 0, height: 0))
-        .frame(minWidth: 620, minHeight: 460)
+        .frame(minWidth: 660, minHeight: 500)
         .preferredColorScheme(.light)
         .onAppear { compose.onSend = send }
         .alert("ShadowChat", isPresented: alertBinding) {
@@ -40,6 +45,10 @@ struct ChatWindowView: View {
         }
     }
 
+    private var isStopped: Bool {
+        (engine?.phase ?? room?.runState ?? .stopped) == .stopped
+    }
+
     private var windowTitle: String {
         let name = room?.name ?? "Room"
         let who = model.screenName.isEmpty ? "Me" : model.screenName
@@ -48,33 +57,70 @@ struct ChatWindowView: View {
 
     private var menuBar: some View {
         VStack(spacing: 0) {
-        HStack(spacing: 4) {
-            ClassicMenuButton(title: "File", items: [
-                ("Close", "w", { NSApp.keyWindow?.performClose(nil) }),
-                ("New Room…", "n", chooseProject)
-            ])
-            ClassicMenuButton(title: "Edit", items: [
-                ("Cut", "x", { NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: nil) }),
-                ("Copy", "c", { NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: nil) }),
-                ("Paste", "v", { NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil) }),
-                ("Select All", "a", { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) })
-            ])
-            ClassicMenuButton(title: "Insert", items: mentionItems + smileyItems)
-            ClassicMenuButton(title: "People", items: peopleItems)
-            Spacer(minLength: 8)
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
-        .frame(height: 26)
-        Text(model.statusLine(roomID: roomID))
-            .font(AIMTheme.font(size: 10))
-            .foregroundStyle(.black)
-            .lineLimit(2)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 8)
-            .padding(.bottom, 3)
+            HStack(spacing: 4) {
+                ClassicMenuButton(title: "File", items: [
+                    ("New Room…", "n", chooseProject),
+                    ("Copy Connect Prompt", "k", { copyForPreset(model.selectedConnectPreset) }),
+                    ("Clear Room History", "", { model.clearRoomMessages(roomID: roomID) }),
+                    ("Close", "w", { NSApp.keyWindow?.performClose(nil) })
+                ])
+                ClassicMenuButton(title: "Edit", items: [
+                    ("Cut", "x", { NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: nil) }),
+                    ("Copy", "c", { NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: nil) }),
+                    ("Paste", "v", { NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil) }),
+                    ("Select All", "a", { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) })
+                ])
+                ClassicMenuButton(title: "Insert", items: mentionItems + smileyItems)
+                ClassicMenuButton(title: "People", items: peopleItems)
+                ClassicMenuButton(title: "Connect", items: connectMenuItems)
+                Spacer(minLength: 8)
+                if let copiedLabel {
+                    Text("✓ \(copiedLabel)")
+                        .font(AIMTheme.font(size: 10, bold: true))
+                        .foregroundStyle(Color(red: 0.0, green: 0.42, blue: 0.13))
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .frame(height: 26)
+            Text(model.statusLine(roomID: roomID))
+                .font(AIMTheme.font(size: 10))
+                .foregroundStyle(.black)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
+                .padding(.bottom, 3)
         }
         .background(AIMTheme.client)
+    }
+
+    private var stoppedBanner: some View {
+        HStack(spacing: 6) {
+            Text("Room is Stopped — press Start for local CLI turns, or Copy Prompt to paste into Grok Bot, Muse, Claude, Codex, Antigravity.")
+                .font(AIMTheme.font(size: 10))
+                .foregroundStyle(.black)
+                .lineLimit(2)
+            Spacer(minLength: 4)
+            Button("▶ Start") {
+                model.start(roomID: roomID)
+            }
+            .buttonStyle(AIMButtonStyle())
+            Button("◎ Roundtable") {
+                model.startRoundtable(roomID: roomID)
+            }
+            .buttonStyle(AIMButtonStyle())
+            ClassicMenuButton(title: "Copy Prompt ▾", items: connectMenuItems)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(AIMTheme.client)
+                .overlay(BevelOverlay(raised: true))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(AIMTheme.cream)
+        .overlay(BevelOverlay(raised: false))
+        .padding(.horizontal, 8)
+        .padding(.top, 2)
     }
 
     private var transcript: some View {
@@ -83,7 +129,7 @@ struct ChatWindowView: View {
             .background(Color.white)
             .overlay(BevelOverlay(raised: false))
             .padding(.horizontal, 8)
-            .padding(.top, 8)
+            .padding(.top, 6)
             .padding(.bottom, 4)
             .background(AIMTheme.client)
     }
@@ -102,7 +148,7 @@ struct ChatWindowView: View {
                     .frame(width: 28)
             }
             .menuStyle(.borderlessButton)
-            .frame(width: 48)
+            .frame(width: 44)
             Button("B") { compose.toggleBold() }
                 .buttonStyle(AIMButtonStyle())
             Button("I") { compose.toggleItalic() }
@@ -113,7 +159,11 @@ struct ChatWindowView: View {
                 .buttonStyle(AIMButtonStyle())
             Button(":)") { compose.insert(":) ") }
                 .buttonStyle(AIMButtonStyle())
-            Spacer()
+            ForEach(["@all", "@GrokBot", "@Muse", "@Antigravity", "@Claude", "@Codex", "@Grok"], id: \.self) { tag in
+                Button(tag) { compose.insert(tag + " ") }
+                    .buttonStyle(AIMButtonStyle())
+            }
+            Spacer(minLength: 4)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
@@ -151,6 +201,12 @@ struct ChatWindowView: View {
                 model.setRoundtable(roomID: roomID, on: !(room?.roundtable ?? false))
             } icon: {
                 Text("◎").font(AIMTheme.font(size: 14)).foregroundStyle(.black)
+            }
+            CaptionTool(title: "Connect") {
+                model.selectConnectRoom(room?.name ?? "Lobby", copyToClipboard: true)
+                openWindow(id: "connect")
+            } icon: {
+                Text("C").font(AIMTheme.font(size: 13, bold: true)).foregroundStyle(.black)
             }
             VStack(spacing: 2) {
                 Text("Turns")
@@ -195,15 +251,51 @@ struct ChatWindowView: View {
         Binding(get: { model.alert != nil }, set: { if !$0 { model.alert = nil } })
     }
 
-    private var mentionItems: [(title: String, key: String, action: () -> Void)] {
-        [
-            ("@ClaudeCode", "", { compose.insert("@ClaudeCode ") }),
-            ("@Codex", "", { compose.insert("@Codex ") }),
-            ("@Grok", "", { compose.insert("@Grok ") }),
-            ("@CursorGrok", "", { compose.insert("@CursorGrok ") }),
-            ("@all", "", { compose.insert("@all ") }),
-            ("@room", "", { compose.insert("@room ") })
+    private var connectMenuItems: [(title: String, key: String, action: () -> Void)] {
+        var items: [(title: String, key: String, action: () -> Void)] = [
+            ("Open Connect Window…", "", {
+                model.selectConnectRoom(room?.name ?? "Lobby", copyToClipboard: false)
+                openWindow(id: "connect")
+            })
         ]
+        for preset in ConnectPreset.featured {
+            items.append(("Copy Prompt for \(preset.displayName)", "", {
+                copyForPreset(preset)
+            }))
+        }
+        for preset in ConnectPreset.additional {
+            items.append(("Copy Prompt for \(preset.displayName)", "", {
+                copyForPreset(preset)
+            }))
+        }
+        return items
+    }
+
+    private var mentionItems: [(title: String, key: String, action: () -> Void)] {
+        var tags = [
+            "@all",
+            "@room",
+            "@GrokBot",
+            "@Muse",
+            "@Antigravity",
+            "@ClaudeCode",
+            "@Codex",
+            "@Grok",
+            "@CursorGrok",
+            "@Claude",
+            "@Cursor",
+            "@Gemini",
+            "@ChatGPT"
+        ]
+        for guest in model.joinedGuests {
+            let tag = "@\(guest)"
+            if !tags.contains(where: { $0.caseInsensitiveCompare(tag) == .orderedSame }) {
+                tags.append(tag)
+            }
+        }
+        return tags.map { tag in
+            (tag, "", { compose.insert(tag + " ") })
+        }
     }
 
     private var smileyItems: [(title: String, key: String, action: () -> Void)] {
@@ -215,11 +307,18 @@ struct ChatWindowView: View {
     private var peopleItems: [(title: String, key: String, action: () -> Void)] {
         var items: [(title: String, key: String, action: () -> Void)] = [
             ("Setup…", "", { model.showingKeySheet = true }),
+            ("Connect External Program…", "", {
+                model.selectConnectRoom(room?.name ?? "Lobby", copyToClipboard: false)
+                openWindow(id: "connect")
+            }),
             (model.screenName.isEmpty ? "Me" : model.screenName, "", { compose.insert(model.screenName + " ") })
         ]
         for buddy in model.buddies {
             let state = buddy.online && buddy.enabled ? "" : " (offline)"
             items.append((buddy.id.screenName + state, "", { model.openBuddy(buddy.id) }))
+        }
+        for guest in model.joinedGuests {
+            items.append(("\(guest) (connected)", "", { compose.insert("@\(guest) ") }))
         }
         for buddy in model.buddies {
             let title = buddy.enabled ? "Disable \(buddy.id.screenName)" : "Enable \(buddy.id.screenName)"
@@ -227,6 +326,12 @@ struct ChatWindowView: View {
         }
         items.append(("Refresh presence", "", { model.refreshPresence() }))
         return items
+    }
+
+    private func copyForPreset(_ preset: ConnectPreset) {
+        let targetRoom = room?.name ?? "Lobby"
+        _ = model.selectConnectPreset(preset, roomName: targetRoom, copyToClipboard: true)
+        copiedLabel = "Copied \(preset.buttonTitle) prompt"
     }
 
     private func send() {

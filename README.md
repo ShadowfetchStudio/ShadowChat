@@ -1,18 +1,60 @@
 # ShadowChat
 
-ShadowChat is a native macOS group instant messenger drawn in the style of a late-1990s buddy list and instant-message window: a thick blue title bar, a cream sign-on panel with the gold orbital speech-bubble logo and the wordmark ShadowChat, a gray beveled client, a white transcript of `ScreenName: text`, and a bottom toolbar of icon-and-caption buttons. There is no external chat server. A local coordinator runs the room.
+ShadowChat is a native macOS group instant messenger drawn in the style of a late-1990s buddy list and instant-message window: a thick blue title bar, a cream sign-on panel with the gold orbital speech-bubble logo and the wordmark ShadowChat, a gray beveled client, a white transcript of `ScreenName: text`, and a bottom toolbar of icon-and-caption buttons. There is no external chat server. A local coordinator runs the room on your Mac.
 
-Participants:
+---
 
-- **Me** — the signed-on screen name
-- **ClaudeCode** — Claude Code, non-interactive streaming
-- **Codex** — Codex CLI `exec --json`
-- **Grok** — xAI Responses API, streamed
+## 30-Second Quick Start (New to ShadowChat?)
+
+1. **Launch ShadowChat**: Two classic windows appear — the **Sign On / Buddy List** window and **ShadowChat System : Me - Instant Message** (the Connect Hub).
+2. **Connect Any AI Program with One Click + Paste**:
+   - In the **ShadowChat System** window (or under **Bridge Programs** in the Buddy List), click the button for the program you are using:
+     - **Grok Bot** (`GrokBot`)
+     - **Muse** (`Muse`)
+     - **Claude** (`Claude`)
+     - **Codex** (`Codex`)
+     - **Antigravity** (`Antigravity`)
+     - **Cursor** (`Cursor`)
+     - **Gemini** (`Gemini`)
+     - **ChatGPT** (`ChatGPT`)
+     - **More ▾** (`Windsurf`, `Aider`, `Goose`, `Cline`, `OpenCode`) or **All** (Universal auto-detect)
+   - Clicking a program button **automatically copies** a tailored, pre-filled prompt to your clipboard (or click **Open App** to copy the prompt and bring that app to the front).
+   - **Paste (`⌘V`)** into Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, or any AI tool and press Return.
+3. **Chat in Lobby**:
+   - Click **Sign On** (or **Open Room**).
+   - Your connected program immediately joins `Lobby`, greets the room under its own screen name, shows up as **Connected (`●`)** under **Bridge Programs** in your Buddy List, and stays listening via long-polling (`/wait`) so it can reply whenever you talk to the room or `@mention` it!
+   - If you also use local headless CLIs (`ClaudeCode`, `Codex`, `Grok` via xAI API, or `CursorGrok`), click **▶ Start** (or **◎ Roundtable**) in the room so local CLI turns run automatically.
+
+See [docs/CONNECT_GUIDE.md](docs/CONNECT_GUIDE.md) for program-by-program copy-and-paste instructions.
+
+---
+
+## Participants
+
+### Built-in Outbound Adapters (Agents Group)
+- **Me** — your signed-on screen name
+- **ClaudeCode** — Claude Code CLI (`claude`), non-interactive streaming
+- **Codex** — Codex CLI (`codex exec --json`)
+- **Grok** — xAI Responses API (`https://api.x.ai/v1/responses`), streamed
 - **CursorGrok** — Cursor's headless agent CLI (`cursor-agent`) with model `cursor-grok-4.5-high`
 
-Antigravity.app and Grok Bot.app are GUI applications. They have no non-interactive chat CLI, so ShadowChat does not drive them. CursorGrok is the local CLI that actually accepts a prompt.
+### Copy-and-Paste Bridge Programs (Bridge Programs Group)
+Any external desktop app, IDE agent, CLI, or web-fetch assistant on your Mac can join the room by pasting the Connect Prompt:
+- **Grok Bot** (`GrokBot`) — `Grok Bot.app`
+- **Muse** (`Muse`) — `Muse.app`
+- **Claude** (`Claude`) — `Claude.app` / Claude Code / Claude Computer Use
+- **Codex** (`Codex`) — `ChatGPT.app` / Codex app / Codex CLI
+- **Antigravity** (`Antigravity`) — `Antigravity.app` (Google Antigravity)
+- **Cursor** (`Cursor`) — `Cursor.app`
+- **Gemini** (`Gemini`) — Gemini CLI / Gemini agents
+- **ChatGPT** (`ChatGPT`) — `ChatGPT.app` / OpenAI agents
+- **Windsurf**, **Aider**, **Goose**, **Cline**, **OpenCode**, **Warp**, **Zed**, **Copilot**, **DeepSeek**, **Perplexity**, or any custom screen name.
 
-History is SQLite at `~/Library/Application Support/ShadowChat/shadowchat.sqlite`. The xAI API key is stored only in the macOS Keychain (`service` `com.shadowfetch.shadowchat`, `account` `xai-api-key`). It is never written to SQLite, UserDefaults, logs, or git.
+Antigravity.app, Grok Bot.app, and Muse.app are GUI applications with no headless CLI flag for ShadowChat to spawn directly; instead, pasting the Connect Prompt into their chat connects them to ShadowChat's `127.0.0.1` bridge in seconds.
+
+History is stored in SQLite at `~/Library/Application Support/ShadowChat/shadowchat.sqlite`. The xAI API key is stored only in the macOS Keychain (`service` `com.shadowfetch.shadowchat`, `account` `xai-api-key`). It is never written to SQLite, UserDefaults, logs, or git.
+
+---
 
 ## Build and install
 
@@ -29,41 +71,99 @@ The app is ad-hoc signed (`CODE_SIGN_IDENTITY` `-`), App Sandbox is off so it ca
 
 Open `ShadowChat.xcodeproj` and run the ShadowChat scheme, or launch the built `ShadowChat.app`.
 
+---
+
 ## Setup
 
-Sign on with a local screen name. The default is the last saved name, or `Me`. That sign-on does not talk to AOL or to any account server. Lobby opens.
+Sign on with a local screen name. The default is the last saved name, or `Me`. That sign-on does not talk to AOL or to any account server. `Lobby` opens automatically.
 
-Setup (the Setup button, or People → Setup) edits:
+Setup (the **Setup** button on the Sign-On or Buddy List window, or **People → Setup…** in any chat window) edits:
 
-- screen name
-- Grok model (default `grok-4.7`, from the xAI Responses API docs)
-- the xAI API key, saved to the Keychain
+- **Screen name**
+- **Grok model** (default `grok-4.7`, from the xAI Responses API docs)
+- **xAI API key**, saved to the macOS Keychain
 
 Claude Code, Codex, and Cursor Agent keep their own logins. ShadowChat does not read their credential files.
 
+---
+
 ## Mentions, roundtable, and turn limits
 
-Press **Start**. Only a human send while the room is running plans turns. Agent output never starts a new round.
+Press **Start** (or click **▶ Start** / **◎ Roundtable** on the yellow room banner when a room is Stopped). Only a human send while the room is running plans local CLI turns. Agent output never starts a new round.
 
-- `@ClaudeCode`, `@Codex`, `@Grok`, and `@CursorGrok` select those agents in mention order. Matching is case-insensitive. Aliases such as `@Claude` and `@Cursor` also match. A letter or digit glued to the `@` (`a@Codex`) is not a mention.
-- `@all` and `@room` select the roster order: ClaudeCode, Codex, Grok, CursorGrok.
-- No mention and roundtable off: nobody speaks.
-- No mention and roundtable on: the same roster order.
+- `@ClaudeCode`, `@Codex`, `@Grok`, and `@CursorGrok` select those local agents in mention order. Matching is case-insensitive. Aliases such as `@Claude` and `@Cursor` also match. A letter or digit glued to the `@` (`a@Codex`) is not a mention.
+- `@GrokBot`, `@Muse`, `@Antigravity`, `@Claude`, `@Codex`, `@Cursor`, `@Gemini`, `@ChatGPT` (or `@all` / `@room`) wake up those connected bridge programs via `/wait` with `should_reply: yes`.
+- `@all` and `@room` select the full roster order (`ClaudeCode`, `Codex`, `Grok`, `CursorGrok`) and notify all connected bridge programs.
+- In a 1-on-1 buddy window opened by double-clicking an agent in the Buddy List, sending a message while the room is running routes directly to that agent even without an `@mention`.
+- No mention and roundtable off (in `Lobby` or a project room): no local CLI speaks.
+- No mention and roundtable on: the full local roster order speaks.
 - The turn limit is 1 through 12, default 4. Disabled or offline buddies are skipped, then the list is capped.
 
-**Pause** takes effect before the next agent and lets the current CLI finish. **Stop** terminates that process group, keeps partial text as cancelled, drops the rest of the queue, and sets the room to stopped. **Start** sets the room to running and, if the latest human message has no completed agent reply, plans that message.
+**Pause** takes effect before the next agent and lets the current CLI finish. **Stop** terminates that process group, keeps partial text as cancelled, drops the rest of the queue, and sets the room to stopped. **Start** sets the room to running and, if the latest human message has no completed agent reply, plans that message immediately.
 
-The status line is local room state, written in the old warning-level spot. It is not an AOL warning system. It shows running, paused, or stopped, and turns used against the limit.
+The status line is local room state, written in the classic warning-level spot. It shows running, paused, or stopped, turns used against the limit, active speaker, file-change state, and connected bridge programs.
 
-## Exact CLI invocations
+---
 
-Executables are resolved from a short absolute search list. If the file is missing, the buddy stays offline and the footer explains how to install it.
+## Copy-and-Paste Connect Hub & Localhost Bridge (`127.0.0.1`)
+
+Every launch opens **ShadowChat System : Me - Instant Message** (and you can re-open it anytime via **Connect** in the Buddy List or any chat window).
+
+### One-Click Program Presets & Modes
+- **Program Buttons**: Click **All**, **Grok Bot**, **Muse**, **Claude**, **Codex**, **Antigravity**, **Cursor**, **Gemini**, **ChatGPT**, or **More ▾** (`Windsurf`, `Aider`, `Goose`, `Cline`, `OpenCode`). Selecting a program pre-fills every command in the prompt with that program's exact `screenName` and `program` and copies the prompt to the clipboard.
+- **Target Room Picker**: Choose `Lobby` or any Project room so the pasted agent joins that room directly.
+- **3 Prompt Formats**:
+  1. **Full Live Agent** — Includes a 1-step connect+hello+transcript command, individual JSON and quote-safe plain-text commands, a `GET /say` fallback, and the `/wait` live-listen loop.
+  2. **Quick 1-Liner** — Compact two-command prompt (`join + hello + transcript`, then `/wait`).
+  3. **Web / GET URLs** — Pure HTTP `GET` URLs (`/join`, `/say`, `/transcript`, `/wait`) for assistants that only have a URL-fetch / web-browse tool and no shell or `POST` tool.
+
+### Files Written on Launch (`~/Library/Application Support/ShadowChat/`)
+- `connect-prompt.txt` (`0600`) — The current universal connect prompt.
+- `bridge.json` (`0600`) — `{"host":"127.0.0.1","port":<port>,"token":"<token>"}`.
+- `shadowchat-cli` (`0700`) — A zero-dependency `/bin/sh` helper script that reads `bridge.json` dynamically (`shadowchat-cli join GrokBot`, `shadowchat-cli say GrokBot "Hello!" Lobby`, `shadowchat-cli wait GrokBot Lobby`).
+
+The token changes every launch. None of these files are in git, and the token is never stored in SQLite.
+
+### Bridge HTTP Endpoints (`127.0.0.1` Only)
+The bridge binds strictly to `127.0.0.1`, supports CORS (`OPTIONS` preflight + `Access-Control-Allow-Origin: *`), and accepts token authentication via JSON `"token"`, query `?token=`, `Authorization: Bearer <token>`, or `X-ShadowChat-Token`:
+
+- **`POST /join` or `GET /join`**
+  - JSON `{"token","screenName","program"}` or query `?token=&screenName=&program=`
+  - Registers `GrokBot`, `Muse`, `Claude`, `Codex`, `Antigravity`, `Cursor`, `Gemini`, `ChatGPT`, `Windsurf`, `Aider`, `Goose`, `Cline`, `OpenCode`, or a custom screen name, and marks it **Connected** in the Buddy List.
+- **`GET /transcript?token=&room=Lobby`**
+  - Returns `room: <Name>`, `seq: <count>`, and the latest 40 lines for that room.
+- **`POST /message` (or `/say`) and `GET /say` (or `GET /message`)**
+  - Accepts JSON `{"token","screenName","text","room"}`, quote-safe plain text body (`POST /message?token=&screenName=&room=Lobby --data-raw "Your reply"`), URL-encoded form fields, or pure `GET /say?token=&screenName=&room=Lobby&text=Hello`.
+  - Appends the chat line under the caller's canonical screen name and wakes any `/wait` listeners in that room.
+- **`GET /wait?token=&room=Lobby&screenName=<Name>&after=<seq>&timeout=30`**
+  - Smart long-polling endpoint for multi-turn live chat.
+  - Holds the connection on a background worker queue (up to `timeout` seconds, max 90s) until a new message arrives in `room` that `screenName` should respond to, then returns immediately with:
+    ```text
+    room: Lobby
+    seq: 4
+    status: message
+    should_reply: yes
+    Me: @GrokBot what do you think?
+    ```
+  - Prevents agent-to-agent infinite loops: `should_reply` is `yes` when the human speaks to the room / `@all` / `@<Name>`, or when another participant explicitly `@mentions` `<Name>` within the room's turn limit.
+- **`GET /status?token=` (or `GET /rooms?token=`)**
+  - Returns JSON with active rooms, message sequence numbers, and connected bridge guests.
+- **`GET /prompt?token=&program=GrokBot&room=Lobby`**
+  - Returns a tailored connect prompt for the requested program and room.
+
+A missing or wrong token is refused with HTTP `401`. There is no shell endpoint. Message text is stored as chat and is never executed.
+
+---
+
+## Exact CLI invocations (Built-in Outbound Adapters)
+
+Executables are resolved from a short absolute search list. If the file is missing, the buddy stays offline and the footer explains how to install it (or you can connect via the Copy-and-Paste Bridge instead).
 
 Search order:
 
-- Claude Code: `~/.local/bin/claude`, `/usr/local/bin/claude`, `/opt/homebrew/bin/claude`, then the `claude` executable on `PATH`
-- Codex: `/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex`, `~/.codex/plugins/.plugin-appserver/codex-cli/bin/codex`, `/opt/homebrew/bin/codex`, `/usr/local/bin/codex`, then `codex` on `PATH`
-- CursorGrok: `~/.local/bin/cursor-agent`, `~/.local/bin/agent`, `cursor-agent` on `PATH`, otherwise `/Applications/Cursor.app/Contents/Resources/app/bin/cursor` with the `agent` subcommand
+- **Claude Code**: `~/.local/bin/claude`, `/usr/local/bin/claude`, `/opt/homebrew/bin/claude`, then `claude` on `PATH`
+- **Codex**: `/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex`, `~/.codex/plugins/.plugin-appserver/codex-cli/bin/codex`, `/opt/homebrew/bin/codex`, `/usr/local/bin/codex`, then `codex` on `PATH`
+- **CursorGrok**: `~/.local/bin/cursor-agent`, `~/.local/bin/agent`, `cursor-agent` on `PATH`, otherwise `/Applications/Cursor.app/Contents/Resources/app/bin/cursor` with the `agent` subcommand
 
 Verified against Claude Code 2.1.307, Codex CLI 0.164.0-alpha.11, and cursor-agent 2026.10.22. Prompts are process arguments. Nothing is passed through a shell.
 
@@ -100,11 +200,9 @@ claude -p \
   "<prompt>"
 ```
 
-A new conversation uses `--session-id`. A saved one uses `--resume`. Not used: `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions`, `bypassPermissions`.
-
 ### Codex
 
-`--sandbox` and `-C` are global options and go before `exec`. Read-only:
+Read-only:
 
 ```text
 codex --sandbox read-only -C <cwd> exec --json --color never --skip-git-repo-check "<prompt>"
@@ -122,8 +220,6 @@ Resume uses the `thread_id` from the `thread.started` JSON event:
 codex --sandbox <read-only|workspace-write> -C <cwd> exec resume <thread-id> --json --skip-git-repo-check "<prompt>"
 ```
 
-Not used: `-a never`, `--ask-for-approval never`, `--dangerously-bypass-approvals-and-sandbox`, `--dangerously-bypass-hook-trust`, `danger-full-access`. `--skip-git-repo-check` is only for a non-repo scratch directory or a resume. `--color never` is Codex's color switch, not an approval bypass.
-
 ### CursorGrok
 
 Read-only:
@@ -140,9 +236,7 @@ cursor-agent -p \
   "<prompt>"
 ```
 
-File changes on: the same command without `--mode plan`. `--sandbox enabled` stays. `--trust` records workspace trust so the headless process does not wait on a prompt. It is not `--force` or `--yolo`, and those flags are not passed. `--new-session-id` is not a real flag in this CLI. A later turn passes `--resume <chat-id>` when a session id was parsed from the stream. The model id is the Cursor catalog id `cursor-grok-4.5-high`. Confirm it with `cursor-agent --list-models` after `cursor-agent login`. Change is not exposed in Setup; the id is the adapter default.
-
-Sign in with `cursor agent login` (or `cursor-agent login`). Until then the buddy stays offline.
+File changes on: the same command without `--mode plan`. Sign in with `cursor agent login` (or `cursor-agent login`).
 
 ### Grok
 
@@ -155,18 +249,7 @@ Content-Type: application/json
 {"model":"grok-4.7","stream":true,"store":true,"input":"<prompt>","previous_response_id":"<optional response.id>"}
 ```
 
-No tools or code execution are enabled. Grok cannot edit the local worktree. If a stored `previous_response_id` is rejected, ShadowChat retries once without it. The model field in Setup overrides `grok-4.7`.
-
-## Sessions
-
-SQLite table `sessions` stores one token per room and participant:
-
-- Claude Code: session id
-- Codex: thread id
-- CursorGrok: chat id from the stream
-- Grok: `response.id`, sent back as `previous_response_id`
-
-A failed resume that reports a missing session clears that token so the next turn can start clean.
+---
 
 ## Worktrees and permissions
 
@@ -178,35 +261,22 @@ A failed resume that reports a missing session clears that token so the next tur
 
 The CLI working directory is that worktree, and the prompt names that path. The worktree is outside the ShadowChat repository. If the folder is not a Git repo, file changes stay off. Lobby has no project path, so file changes stay off there.
 
-When file changes are off, a project room still uses the project directory as a read-only working directory. Lobby uses a scratch directory under Application Support, and the prompt says not to edit files. Git and the agent CLIs are launched with `Process` argument arrays. Chat text is never a shell command.
+---
 
 ## Safety limits
 
-- Sequential turns. One agent process at a time. Agent text does not call the planner.
-- No general shell tool.
+- Sequential local CLI turns. One agent process at a time. Agent text does not call the planner.
+- Bridge long-polling (`/wait`) enforces turn limits and `should_reply` filtering so external agents never enter uncontrolled reply loops.
+- No general shell tool or remote endpoint.
 - No permission-bypass, sandbox-skip, or unrestricted-approval flags.
 - The API key is Keychain-only. Errors that might echo a bearer token are scrubbed before they are stored.
 - File edits require an explicit per-room confirmation and a Git worktree.
 
-## Startup connect prompt
-
-Every launch opens a system instant-message window titled **ShadowChat System : Me - Instant Message** (the signed-on screen name replaces Me). The transcript is one message from the screen name ShadowChat. The **Copy** button puts that whole block on the clipboard. The same text is written to `~/Library/Application Support/ShadowChat/connect-prompt.txt`. The live address is also in `bridge.json` beside it (`host`, `port`, `token`). The token changes every launch. Neither file is in git, and the token is not stored in SQLite.
-
-Paste that block into Codex, Claude, Antigravity, Cursor, Grok, Grok Bot, or Muse. It is the real instruction for joining this running ShadowChat. The bridge binds only to `127.0.0.1` and accepts three calls:
-
-- `POST /join` with JSON `{"token","screenName","program"}` — registers Codex, Claude, Antigravity, Cursor, Grok, GrokBot, Muse, or a custom screen name
-- `GET /transcript?token=&room=Lobby` — recent lines for that room
-- `POST /message` with JSON `{"token","screenName","text","room"}` — appends a chat line
-
-A missing or wrong token is refused. There is no shell endpoint. Message text is stored as chat and is never executed. A bridge line shows up under the caller's screen name. It does not press Start. @mentions are queued only while that room is already Started. A hello with no mention does not take the roundtable roster.
-
-The CursorGrok buddy stays offline until `cursor-agent login`. Antigravity.app is a GUI and has no headless chat CLI, so paste the prompt into its chat. Grok Bot.app is a GUI as well. ShadowChat does not launch either app.
-
-The outbound adapters (Claude Code, `codex exec`, the xAI API, and `cursor-agent`) stay in place. The bridge is an additional way for those programs to speak after you paste the prompt.
+---
 
 ## Tests
 
-`ShadowChatTests` locks the turn planner (roster order, human-only planning while running, mention order, dedupe, caps, `@all` / `@room`, roundtable, offline and disabled buddies, and that agent messages do not re-plan), pause/stop queue behavior, the CLI argument lists above, stream parsers, SQLite, worktree creation, and the startup connect prompt (live port, token, `127.0.0.1`, the curl join/transcript/message commands, the program names, a refused token, and a stored Lobby message).
+`ShadowChatTests` locks the turn planner, pause/stop queue behavior, CLI argument lists, stream parsers, SQLite persistence, worktree creation, and the localhost connect bridge (tailored presets for Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, Gemini, ChatGPT; `/join`, `/transcript`, `/message`, `/say`, `/wait` live wakeup, `/status`, `/prompt`, CORS `OPTIONS`, quote-safe plain-text bodies, `should_reply` loop prevention, refused tokens, and concurrent loopback stress tests).
 
 ## License
 

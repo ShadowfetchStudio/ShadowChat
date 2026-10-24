@@ -4,7 +4,7 @@ import SwiftUI
 struct BuddyListView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.openWindow) private var openWindow
-    @State private var expanded: Set<String> = ["Agents", "Buddies", "Rooms"]
+    @State private var expanded: Set<String> = ["Agents", "Bridge Programs", "Buddies", "Rooms"]
     @State private var selection: Selection?
 
     var body: some View {
@@ -13,6 +13,7 @@ struct BuddyListView: View {
             VStack(spacing: 0) {
                 if model.signedOn {
                     groupList
+                    signedOnToolbar
                 } else {
                     logoPanel
                     signOnPanel
@@ -27,7 +28,7 @@ struct BuddyListView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(AIMTheme.frameBlue)
         .overlay(WindowConfigurator(title: "ShadowChat").frame(width: 0, height: 0))
-        .frame(minWidth: 300, minHeight: 520)
+        .frame(minWidth: 310, minHeight: 560)
         .preferredColorScheme(.light)
         .onAppear { openWindow(id: "connect") }
         .onChange(of: model.openRequest) { _, request in
@@ -58,7 +59,7 @@ struct BuddyListView: View {
                 .shadow(color: Color.yellow, radius: 0, x: 1, y: 1)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
+        .padding(.vertical, 14)
         .background(AIMTheme.logoBlue)
         .overlay(BevelOverlay(raised: true))
         .padding(8)
@@ -77,12 +78,32 @@ struct BuddyListView: View {
                 .padding(4)
                 .background(Color.white)
                 .overlay(BevelOverlay(raised: false))
+                .onSubmit { model.signOn() }
             Text("Local sign on. No password leaves this Mac.")
                 .font(AIMTheme.font(size: 10))
                 .foregroundStyle(.black.opacity(0.7))
-            HStack(alignment: .bottom, spacing: 8) {
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("1-Click Copy Prompt (Paste into any AI app):")
+                    .font(AIMTheme.font(size: 10, bold: true))
+                    .foregroundStyle(.black)
+                HStack(spacing: 4) {
+                    ForEach([ConnectPreset.grokBot, .muse, .claude, .codex, .antigravity]) { preset in
+                        Button(preset.buttonTitle) {
+                            _ = model.selectConnectPreset(preset, copyToClipboard: true)
+                            openWindow(id: "connect")
+                        }
+                        .buttonStyle(AIMButtonStyle(sunken: model.selectedConnectPreset == preset))
+                    }
+                }
+            }
+            .padding(6)
+            .background(AIMTheme.cream)
+            .overlay(BevelOverlay(raised: false))
+
+            HStack(alignment: .bottom, spacing: 6) {
                 CaptionTool(title: "Help") {
-                    model.alert = "Mention @ClaudeCode, @Codex, @Grok, @CursorGrok, or @all. Press Start, then Send. Roundtable invites the roster when nobody is mentioned. Turn limit is 1 to 12. File changes stay off until you allow them for a Git project room."
+                    model.alert = "Quick Start:\n1. Click Sign On to open Lobby.\n2. To connect Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, or Gemini, click Connect (or a program in Bridge Programs) to copy its prompt and paste (⌘V) into that program.\n3. In a room, press Start (or Roundtable) so @mentions trigger local CLI turns."
                 } icon: {
                     Text("?")
                         .font(AIMTheme.font(size: 16, bold: true))
@@ -93,6 +114,13 @@ struct BuddyListView: View {
                 } icon: {
                     Text("⚒")
                         .font(AIMTheme.font(size: 14))
+                        .foregroundStyle(.black)
+                }
+                CaptionTool(title: "Connect") {
+                    openWindow(id: "connect")
+                } icon: {
+                    Text("C")
+                        .font(AIMTheme.font(size: 14, bold: true))
                         .foregroundStyle(.black)
                 }
                 Spacer()
@@ -114,23 +142,67 @@ struct BuddyListView: View {
             VStack(alignment: .leading, spacing: 2) {
                 group("Agents") {
                     ForEach(model.buddies) { buddy in
+                        let isOnline = buddy.online && buddy.enabled
                         row(
-                            title: buddy.id.screenName,
-                            trailing: "",
+                            title: (isOnline ? "● " : "○ ") + buddy.id.screenName,
+                            trailing: isOnline ? "Online" : (buddy.enabled ? "Offline" : "Off"),
                             selected: selection == .buddy(buddy.id),
-                            online: buddy.online && buddy.enabled,
+                            online: isOnline,
                             help: buddy.reason
                         ) {
                             selection = .buddy(buddy.id)
                         } double: {
                             selection = .buddy(buddy.id)
-                            model.openBuddy(buddy.id)
+                            if buddy.id == .grok && !model.keySaved {
+                                model.showingKeySheet = true
+                            } else {
+                                model.openBuddy(buddy.id)
+                            }
+                        }
+                    }
+                }
+                group("Bridge Programs") {
+                    ForEach(ConnectPreset.bridgeRosterPresets) { preset in
+                        let connected = model.isGuestConnected(preset.screenName)
+                        row(
+                            title: (connected ? "● " : "◌ ") + preset.displayName,
+                            trailing: connected ? "Connected" : "Copy Prompt",
+                            selected: selection == .guest(preset.screenName),
+                            online: connected,
+                            help: connected
+                                ? "\(preset.displayName) is connected via 127.0.0.1:\(model.bridgePort). Double-click to open Lobby."
+                                : "Click to copy the ready-to-paste prompt for \(preset.displayName). Double-click to copy & open Connect."
+                        ) {
+                            selection = .guest(preset.screenName)
+                            _ = model.selectConnectPreset(preset, copyToClipboard: true)
+                        } double: {
+                            selection = .guest(preset.screenName)
+                            _ = model.selectConnectPreset(preset, copyToClipboard: true)
+                            if connected {
+                                model.openLobby()
+                            } else {
+                                openWindow(id: "connect")
+                            }
+                        }
+                    }
+                    ForEach(customConnectedGuests, id: \.self) { guest in
+                        row(
+                            title: "● " + guest,
+                            trailing: "Connected",
+                            selected: selection == .guest(guest),
+                            online: true,
+                            help: "\(guest) is connected via the localhost bridge."
+                        ) {
+                            selection = .guest(guest)
+                        } double: {
+                            selection = .guest(guest)
+                            model.openLobby()
                         }
                     }
                 }
                 group("Buddies") {
                     row(
-                        title: model.screenName.isEmpty ? "Me" : model.screenName,
+                        title: "● " + (model.screenName.isEmpty ? "Me" : model.screenName),
                         trailing: model.signedOn ? "Online" : "Offline",
                         selected: selection == .buddy(.me),
                         online: model.signedOn,
@@ -139,15 +211,20 @@ struct BuddyListView: View {
                         selection = .buddy(.me)
                     } double: {
                         selection = .buddy(.me)
+                        model.openLobby()
                     }
                 }
                 group("Rooms") {
                     ForEach(model.rooms) { room in
+                        let phase = (model.engines[room.id]?.phase ?? room.runState)
+                        let badge = room.kind == .lobby
+                            ? (phase == .running ? "Lobby · Run" : "Lobby")
+                            : (phase == .running ? "Project · Run" : "Project")
                         row(
                             title: room.name,
-                            trailing: room.kind == .lobby ? "Lobby" : "Project",
+                            trailing: badge,
                             selected: selection == .room(room.id),
-                            help: room.projectPath ?? "Local room"
+                            help: room.projectPath ?? "Double-click to open \(room.name)"
                         ) {
                             selection = .room(room.id)
                         } double: {
@@ -167,13 +244,45 @@ struct BuddyListView: View {
         .background(AIMTheme.client)
     }
 
+    private var signedOnToolbar: some View {
+        HStack(spacing: 4) {
+            CaptionTool(title: "Lobby", action: { model.openLobby() }) {
+                Image("Logo")
+                    .resizable()
+                    .interpolation(.high)
+            }
+            CaptionTool(title: "Connect", action: { openWindow(id: "connect") }) {
+                Text("C")
+                    .font(AIMTheme.font(size: 13, bold: true))
+                    .foregroundStyle(.black)
+            }
+            CaptionTool(title: "Setup", action: { model.showingKeySheet = true }) {
+                Text("⚒")
+                    .font(AIMTheme.font(size: 13))
+                    .foregroundStyle(.black)
+            }
+            CaptionTool(title: "Project", action: chooseProject) {
+                Text("+")
+                    .font(AIMTheme.font(size: 15, bold: true))
+                    .foregroundStyle(.black)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(AIMTheme.client)
+        .overlay(alignment: .top) {
+            Rectangle().fill(AIMTheme.bevelDark.opacity(0.35)).frame(height: 1)
+        }
+    }
+
     private var footer: some View {
         HStack(alignment: .bottom) {
             Text(footerText)
                 .font(AIMTheme.font(size: 10))
                 .foregroundStyle(.black.opacity(0.75))
                 .lineLimit(3)
-            Spacer(minLength: 8)
+            Spacer(minLength: 6)
             Button("Connect") { openWindow(id: "connect") }
                 .buttonStyle(AIMButtonStyle())
             if model.signedOn {
@@ -193,17 +302,33 @@ struct BuddyListView: View {
         }
     }
 
+    private var customConnectedGuests: [String] {
+        let standardNames = Set(ConnectPreset.bridgeRosterPresets.map { $0.screenName.lowercased() })
+        return model.joinedGuests.filter { !standardNames.contains($0.lowercased()) }
+    }
+
     private var footerText: String {
         switch selection {
         case .buddy(let id):
             if id == .me {
-                return model.signedOn ? "\(model.screenName) is signed on." : "Sign on to open Lobby."
+                return model.signedOn ? "\(model.screenName) is signed on. Double-click Lobby to chat." : "Sign on to open Lobby."
             }
             return model.buddies.first(where: { $0.id == id })?.reason ?? ""
+        case .guest(let name):
+            if model.isGuestConnected(name) {
+                return "\(name) is connected via 127.0.0.1:\(model.bridgePort). Double-click to chat in Lobby."
+            }
+            return "Copied \(name) prompt! Paste (⌘V) into \(name) to connect."
         case .room(let id):
-            return model.room(id)?.name ?? ""
+            if let room = model.room(id) {
+                return "\(room.name) — double-click to open instant message window."
+            }
+            return ""
         case nil:
-            return "Sign on to open Lobby."
+            if !model.connectBannerText.isEmpty {
+                return model.connectBannerText
+            }
+            return model.signedOn ? "Double-click a room or click a Bridge Program to copy its prompt." : "Sign on to open Lobby."
         }
     }
 

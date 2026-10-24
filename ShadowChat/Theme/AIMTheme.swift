@@ -307,7 +307,7 @@ struct SetupSheet: View {
 
 enum ScreenColors {
     static func color(sender: ParticipantID, name: String) -> NSColor {
-        switch name.lowercased().replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: "") {
+        switch name.lowercased().replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: "").replacingOccurrences(of: "_", with: "") {
         case "shadowchat":
             return NSColor(calibratedRed: 0.15, green: 0.12, blue: 0.35, alpha: 1)
         case "codex":
@@ -316,10 +316,18 @@ enum ScreenColors {
             return ParticipantID.claudeCode.nsColor
         case "grok", "grokbot":
             return ParticipantID.grok.nsColor
-        case "cursor", "cursorgrok", "antigravity":
+        case "cursor", "cursorgrok":
             return ParticipantID.cursorGrok.nsColor
+        case "antigravity", "agy":
+            return NSColor(calibratedRed: 0.12, green: 0.24, blue: 0.68, alpha: 1)
         case "muse":
             return NSColor(calibratedRed: 0.36, green: 0.16, blue: 0.55, alpha: 1)
+        case "gemini", "geminicli":
+            return NSColor(calibratedRed: 0.08, green: 0.34, blue: 0.72, alpha: 1)
+        case "chatgpt", "openai":
+            return NSColor(calibratedRed: 0.05, green: 0.45, blue: 0.32, alpha: 1)
+        case "windsurf", "aider", "goose", "cline", "opencode", "warp", "zed", "copilot", "deepseek", "perplexity":
+            return NSColor(calibratedRed: 0.28, green: 0.18, blue: 0.44, alpha: 1)
         default:
             return sender.nsColor
         }
