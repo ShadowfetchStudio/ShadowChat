@@ -1,0 +1,466 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		132FF36C0145F866BEF0F644 /* DatabaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F154A83AAD6CC6414166C25 /* DatabaseTests.swift */; };
+		2F7C36E6C855F9FEFD8BF566 /* TurnPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D490C98B28CA47F5A7756CD5 /* TurnPlannerTests.swift */; };
+		37F03A7DE88D2D8C98A5B8D9 /* TurnEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 436D261238F4D258F76D0E9A /* TurnEngine.swift */; };
+		38F9F6CDC44A3A4FA62D0D82 /* CLIInvocationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10D4A3B7994767076DD19A5 /* CLIInvocationTests.swift */; };
+		3E1D7833CA781972277DA9C1 /* AIMTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C440B98F3C257830134C2EE /* AIMTheme.swift */; };
+		3F447AEF99441C752982A3DB /* ChatWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA28931343F189DC80BBDC3D /* ChatWindowView.swift */; };
+		46C4590690BEEBA545BD5355 /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B91DA090881A34CC6482EAE /* Database.swift */; };
+		5045070E943C7D77643A861C /* TurnEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0F072F1C9A58A7CA0885DD /* TurnEngineTests.swift */; };
+		574B2E757C0F25A16EB9C7E0 /* TurnPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04305D704C06DD8DE4096A27 /* TurnPlanner.swift */; };
+		600BB33CE5E6FF1A26543964 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEECD5E64FC4A8AD3B7AB51F /* AppModel.swift */; };
+		6BF8BF377C45366A3F4ED16F /* StreamParsers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17881FBEA8852D8035F84539 /* StreamParsers.swift */; };
+		6D664A95EBD32363BB627083 /* StreamParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8A8C450A679014B4440D158 /* StreamParserTests.swift */; };
+		7672D607AA03914BA447F47A /* WorktreeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FB91B6E9F48B0A5B4F2E2B /* WorktreeManager.swift */; };
+		8B6888C719243A4EC2356052 /* BuddyListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD4CDAE145784C71549CC3AF /* BuddyListView.swift */; };
+		9A617054BA57D993346B6B1D /* SupportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F082BF2F43691C40B1EFDD22 /* SupportTests.swift */; };
+		A48FEC9AE5770EF6B22818AC /* PresenceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E4FDC27D6D35CC22EA7B135 /* PresenceProbe.swift */; };
+		A944EE2C299B186C85EC2A42 /* CLIInvocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42B8969144E94D61B3033237 /* CLIInvocation.swift */; };
+		B2BD98D82762C038DEE3F603 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 766C3BE86258E9B4144A302A /* KeychainStore.swift */; };
+		D68F90AE5BE5F44EB9D9F529 /* ShadowChatApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BBC0996A09920D99FAEF248 /* ShadowChatApp.swift */; };
+		D8D3B0C1474C9E20D0FC5B0C /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510D7BDD711D68042BA84AB2 /* Models.swift */; };
+		DADC11753B695D8AB9B53671 /* ComposeBox.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53EA728D72D04EF04D81687 /* ComposeBox.swift */; };
+		E3C2346BDB89F6DF6D2F87A8 /* AgentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52181C984587FC775ACB2D79 /* AgentService.swift */; };
+		EA5525A5E3E415D854E4E8B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 61E1798A930FC7192EA4F879 /* Assets.xcassets */; };
+		FA9591AB8F6D8B257DE24646 /* ProcessRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F7EBBCB8A661307B6FB3AB5 /* ProcessRunner.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B9F58AF7E3EE304A17AC2346 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E1EFBF9C783DB462110EEA75 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CB0D2C1B340B830F91BBCA6A;
+			remoteInfo = ShadowChat;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		04305D704C06DD8DE4096A27 /* TurnPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnPlanner.swift; sourceTree = "<group>"; };
+		0C0E5626B01414B875427737 /* ShadowChat.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShadowChat.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0CBA1A5B07C5610F964DB577 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		17881FBEA8852D8035F84539 /* StreamParsers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamParsers.swift; sourceTree = "<group>"; };
+		1F7EBBCB8A661307B6FB3AB5 /* ProcessRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessRunner.swift; sourceTree = "<group>"; };
+		2BBC0996A09920D99FAEF248 /* ShadowChatApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShadowChatApp.swift; sourceTree = "<group>"; };
+		2F154A83AAD6CC6414166C25 /* DatabaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseTests.swift; sourceTree = "<group>"; };
+		3D2DB858916667B585ED8FBE /* ShadowChatTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ShadowChatTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		42B8969144E94D61B3033237 /* CLIInvocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIInvocation.swift; sourceTree = "<group>"; };
+		436D261238F4D258F76D0E9A /* TurnEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnEngine.swift; sourceTree = "<group>"; };
+		510D7BDD711D68042BA84AB2 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		52181C984587FC775ACB2D79 /* AgentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentService.swift; sourceTree = "<group>"; };
+		59FB91B6E9F48B0A5B4F2E2B /* WorktreeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreeManager.swift; sourceTree = "<group>"; };
+		61E1798A930FC7192EA4F879 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		6B91DA090881A34CC6482EAE /* Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
+		6E4FDC27D6D35CC22EA7B135 /* PresenceProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresenceProbe.swift; sourceTree = "<group>"; };
+		766C3BE86258E9B4144A302A /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		8C440B98F3C257830134C2EE /* AIMTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIMTheme.swift; sourceTree = "<group>"; };
+		AA28931343F189DC80BBDC3D /* ChatWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatWindowView.swift; sourceTree = "<group>"; };
+		AEECD5E64FC4A8AD3B7AB51F /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		B53EA728D72D04EF04D81687 /* ComposeBox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeBox.swift; sourceTree = "<group>"; };
+		D10D4A3B7994767076DD19A5 /* CLIInvocationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIInvocationTests.swift; sourceTree = "<group>"; };
+		D490C98B28CA47F5A7756CD5 /* TurnPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnPlannerTests.swift; sourceTree = "<group>"; };
+		D8A8C450A679014B4440D158 /* StreamParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamParserTests.swift; sourceTree = "<group>"; };
+		DC0F072F1C9A58A7CA0885DD /* TurnEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnEngineTests.swift; sourceTree = "<group>"; };
+		DD4CDAE145784C71549CC3AF /* BuddyListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuddyListView.swift; sourceTree = "<group>"; };
+		F082BF2F43691C40B1EFDD22 /* SupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1974C1E8E324C3B184F39F5C /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				6B91DA090881A34CC6482EAE /* Database.swift */,
+				766C3BE86258E9B4144A302A /* KeychainStore.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		1AC0C55F2EFA331A171531BB = {
+			isa = PBXGroup;
+			children = (
+				5DE3F04247D6AF9250322545 /* ShadowChat */,
+				3E5961FD455AFE191FBA5476 /* ShadowChatTests */,
+				1EEA6CD0148C0BEC7EE8D75C /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1EEA6CD0148C0BEC7EE8D75C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0C0E5626B01414B875427737 /* ShadowChat.app */,
+				3D2DB858916667B585ED8FBE /* ShadowChatTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		3E5961FD455AFE191FBA5476 /* ShadowChatTests */ = {
+			isa = PBXGroup;
+			children = (
+				D10D4A3B7994767076DD19A5 /* CLIInvocationTests.swift */,
+				2F154A83AAD6CC6414166C25 /* DatabaseTests.swift */,
+				D8A8C450A679014B4440D158 /* StreamParserTests.swift */,
+				F082BF2F43691C40B1EFDD22 /* SupportTests.swift */,
+				DC0F072F1C9A58A7CA0885DD /* TurnEngineTests.swift */,
+				D490C98B28CA47F5A7756CD5 /* TurnPlannerTests.swift */,
+			);
+			path = ShadowChatTests;
+			sourceTree = "<group>";
+		};
+		55918550C17C4521EB3C745D /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				DD4CDAE145784C71549CC3AF /* BuddyListView.swift */,
+				AA28931343F189DC80BBDC3D /* ChatWindowView.swift */,
+				B53EA728D72D04EF04D81687 /* ComposeBox.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		5DE3F04247D6AF9250322545 /* ShadowChat */ = {
+			isa = PBXGroup;
+			children = (
+				C07B9837382EFE71ED39B99B /* Agents */,
+				77E5AFBFAEE922E72147DD14 /* Coordinator */,
+				9D8A56C821BF72A94615F88B /* Model */,
+				1974C1E8E324C3B184F39F5C /* Persistence */,
+				724153D5DA9288E8C81CEED6 /* Planner */,
+				8E6EBD0953C3DAB561CBCDED /* Theme */,
+				55918550C17C4521EB3C745D /* UI */,
+				AEECD5E64FC4A8AD3B7AB51F /* AppModel.swift */,
+				61E1798A930FC7192EA4F879 /* Assets.xcassets */,
+				0CBA1A5B07C5610F964DB577 /* Info.plist */,
+				2BBC0996A09920D99FAEF248 /* ShadowChatApp.swift */,
+			);
+			path = ShadowChat;
+			sourceTree = "<group>";
+		};
+		724153D5DA9288E8C81CEED6 /* Planner */ = {
+			isa = PBXGroup;
+			children = (
+				04305D704C06DD8DE4096A27 /* TurnPlanner.swift */,
+			);
+			path = Planner;
+			sourceTree = "<group>";
+		};
+		77E5AFBFAEE922E72147DD14 /* Coordinator */ = {
+			isa = PBXGroup;
+			children = (
+				436D261238F4D258F76D0E9A /* TurnEngine.swift */,
+			);
+			path = Coordinator;
+			sourceTree = "<group>";
+		};
+		8E6EBD0953C3DAB561CBCDED /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				8C440B98F3C257830134C2EE /* AIMTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		9D8A56C821BF72A94615F88B /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				510D7BDD711D68042BA84AB2 /* Models.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		C07B9837382EFE71ED39B99B /* Agents */ = {
+			isa = PBXGroup;
+			children = (
+				52181C984587FC775ACB2D79 /* AgentService.swift */,
+				42B8969144E94D61B3033237 /* CLIInvocation.swift */,
+				6E4FDC27D6D35CC22EA7B135 /* PresenceProbe.swift */,
+				1F7EBBCB8A661307B6FB3AB5 /* ProcessRunner.swift */,
+				17881FBEA8852D8035F84539 /* StreamParsers.swift */,
+				59FB91B6E9F48B0A5B4F2E2B /* WorktreeManager.swift */,
+			);
+			path = Agents;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CB0D2C1B340B830F91BBCA6A /* ShadowChat */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9E4BB899492B668FAA7B56AC /* Build configuration list for PBXNativeTarget "ShadowChat" */;
+			buildPhases = (
+				831812B3D9A1000A47ECBAEC /* Sources */,
+				AECBD92AEABAE60B9193339E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ShadowChat;
+			packageProductDependencies = (
+			);
+			productName = ShadowChat;
+			productReference = 0C0E5626B01414B875427737 /* ShadowChat.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DD4F58DD9503DDB245F9C55E /* ShadowChatTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5ADA5DEC1D3FF7260B1DE711 /* Build configuration list for PBXNativeTarget "ShadowChatTests" */;
+			buildPhases = (
+				A5E4911011C18938760D5537 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7002B7B7B48B29179F24C214 /* PBXTargetDependency */,
+			);
+			name = ShadowChatTests;
+			packageProductDependencies = (
+			);
+			productName = ShadowChatTests;
+			productReference = 3D2DB858916667B585ED8FBE /* ShadowChatTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E1EFBF9C783DB462110EEA75 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					CB0D2C1B340B830F91BBCA6A = {
+						ProvisioningStyle = Manual;
+					};
+					DD4F58DD9503DDB245F9C55E = {
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = 84EF5E2C67322856C4B598C1 /* Build configuration list for PBXProject "ShadowChat" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 1AC0C55F2EFA331A171531BB;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 1EEA6CD0148C0BEC7EE8D75C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CB0D2C1B340B830F91BBCA6A /* ShadowChat */,
+				DD4F58DD9503DDB245F9C55E /* ShadowChatTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AECBD92AEABAE60B9193339E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EA5525A5E3E415D854E4E8B2 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		831812B3D9A1000A47ECBAEC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3E1D7833CA781972277DA9C1 /* AIMTheme.swift in Sources */,
+				E3C2346BDB89F6DF6D2F87A8 /* AgentService.swift in Sources */,
+				600BB33CE5E6FF1A26543964 /* AppModel.swift in Sources */,
+				8B6888C719243A4EC2356052 /* BuddyListView.swift in Sources */,
+				A944EE2C299B186C85EC2A42 /* CLIInvocation.swift in Sources */,
+				3F447AEF99441C752982A3DB /* ChatWindowView.swift in Sources */,
+				DADC11753B695D8AB9B53671 /* ComposeBox.swift in Sources */,
+				46C4590690BEEBA545BD5355 /* Database.swift in Sources */,
+				B2BD98D82762C038DEE3F603 /* KeychainStore.swift in Sources */,
+				D8D3B0C1474C9E20D0FC5B0C /* Models.swift in Sources */,
+				A48FEC9AE5770EF6B22818AC /* PresenceProbe.swift in Sources */,
+				FA9591AB8F6D8B257DE24646 /* ProcessRunner.swift in Sources */,
+				D68F90AE5BE5F44EB9D9F529 /* ShadowChatApp.swift in Sources */,
+				6BF8BF377C45366A3F4ED16F /* StreamParsers.swift in Sources */,
+				37F03A7DE88D2D8C98A5B8D9 /* TurnEngine.swift in Sources */,
+				574B2E757C0F25A16EB9C7E0 /* TurnPlanner.swift in Sources */,
+				7672D607AA03914BA447F47A /* WorktreeManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A5E4911011C18938760D5537 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				38F9F6CDC44A3A4FA62D0D82 /* CLIInvocationTests.swift in Sources */,
+				132FF36C0145F866BEF0F644 /* DatabaseTests.swift in Sources */,
+				6D664A95EBD32363BB627083 /* StreamParserTests.swift in Sources */,
+				9A617054BA57D993346B6B1D /* SupportTests.swift in Sources */,
+				5045070E943C7D77643A861C /* TurnEngineTests.swift in Sources */,
+				2F7C36E6C855F9FEFD8BF566 /* TurnPlannerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7002B7B7B48B29179F24C214 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CB0D2C1B340B830F91BBCA6A /* ShadowChat */;
+			targetProxy = B9F58AF7E3EE304A17AC2346 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		03C4EDEA0A7E8A009A878A31 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShadowChat/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-lsqlite3",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.shadowfetch.shadowchat;
+				PRODUCT_MODULE_NAME = ShadowChat;
+				PRODUCT_NAME = ShadowChat;
+			};
+			name = Release;
+		};
+		49BD13BE8032CCF5B0805786 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				OTHER_LDFLAGS = (
+					"-lsqlite3",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.shadowfetch.shadowchat.tests;
+				PRODUCT_NAME = ShadowChatTests;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ShadowChat.app/Contents/MacOS/ShadowChat";
+			};
+			name = Debug;
+		};
+		56DCA2504977BB77EE4FADC3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				OTHER_LDFLAGS = (
+					"-lsqlite3",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.shadowfetch.shadowchat.tests;
+				PRODUCT_NAME = ShadowChatTests;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ShadowChat.app/Contents/MacOS/ShadowChat";
+			};
+			name = Release;
+		};
+		95367E2AC55F03E3DF95E961 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShadowChat/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-lsqlite3",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.shadowfetch.shadowchat;
+				PRODUCT_MODULE_NAME = ShadowChat;
+				PRODUCT_NAME = ShadowChat;
+			};
+			name = Debug;
+		};
+		AA954338114F2854C1BF4AE5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				AD_HOC_CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_TESTABILITY = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		F8CBF56FFA10B51270F14CA0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				AD_HOC_CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_TESTABILITY = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5ADA5DEC1D3FF7260B1DE711 /* Build configuration list for PBXNativeTarget "ShadowChatTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49BD13BE8032CCF5B0805786 /* Debug */,
+				56DCA2504977BB77EE4FADC3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		84EF5E2C67322856C4B598C1 /* Build configuration list for PBXProject "ShadowChat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F8CBF56FFA10B51270F14CA0 /* Debug */,
+				AA954338114F2854C1BF4AE5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9E4BB899492B668FAA7B56AC /* Build configuration list for PBXNativeTarget "ShadowChat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95367E2AC55F03E3DF95E961 /* Debug */,
+				03C4EDEA0A7E8A009A878A31 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E1EFBF9C783DB462110EEA75 /* Project object */;
+}
