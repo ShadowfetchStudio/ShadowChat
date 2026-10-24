@@ -26,7 +26,6 @@ struct BuddyListView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(AIMTheme.frameBlue)
-        .ignoresSafeArea()
         .overlay(WindowConfigurator(title: "ShadowChat").frame(width: 0, height: 0))
         .frame(minWidth: 300, minHeight: 520)
         .preferredColorScheme(.light)

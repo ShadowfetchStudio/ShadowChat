@@ -25,7 +25,6 @@ struct ChatWindowView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(AIMTheme.frameBlue)
-        .ignoresSafeArea()
         .overlay(WindowConfigurator(title: windowTitle).frame(width: 0, height: 0))
         .frame(minWidth: 620, minHeight: 460)
         .preferredColorScheme(.light)
