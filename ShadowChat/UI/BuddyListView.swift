@@ -29,6 +29,7 @@ struct BuddyListView: View {
         .overlay(WindowConfigurator(title: "ShadowChat").frame(width: 0, height: 0))
         .frame(minWidth: 300, minHeight: 520)
         .preferredColorScheme(.light)
+        .onAppear { openWindow(id: "connect") }
         .onChange(of: model.openRequest) { _, request in
             guard let request else { return }
             openWindow(id: "im", value: request.id)
@@ -173,6 +174,8 @@ struct BuddyListView: View {
                 .foregroundStyle(.black.opacity(0.75))
                 .lineLimit(3)
             Spacer(minLength: 8)
+            Button("Connect") { openWindow(id: "connect") }
+                .buttonStyle(AIMButtonStyle())
             if model.signedOn {
                 Button("Sign Off") { model.signOff() }
                     .buttonStyle(AIMButtonStyle())

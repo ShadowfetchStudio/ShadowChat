@@ -23,6 +23,13 @@ struct ShadowChatApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 720, height: 560)
+
+        Window("ShadowChat System", id: "connect") {
+            SystemConnectView()
+                .environmentObject(model)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 720, height: 560)
     }
 }
 

@@ -19,9 +19,15 @@ final class AppModel: ObservableObject {
     @Published var openRequest: OpenRequest?
     @Published var keySaved = false
     @Published var grokModel: String
+    @Published var connectPrompt = ""
+    @Published var bridgePort = 0
+    @Published var connectIssuedAt = Date()
     let version: String
 
     let database: Database
+    private var bridgeServer: LocalBridgeServer?
+    private var bridgeToken = ""
+    private var joinedGuests: [String] = []
     private var handles: [String: TurnHandle] = [:]
     private var loops: [String: Task<Void, Never>] = [:]
     private var signals: [String: AsyncSignal] = [:]
@@ -66,6 +72,7 @@ final class AppModel: ObservableObject {
         for room in rooms where room.runState == .running {
             ensureLoop(room.id)
         }
+        startConnectBridge()
         refreshPresence()
     }
 
@@ -210,6 +217,8 @@ final class AppModel: ObservableObject {
         for room in rooms {
             stop(roomID: room.id)
         }
+        bridgeServer?.stop()
+        bridgeServer = nil
     }
 
     func setRoundtable(roomID: String, on: Bool) {
@@ -521,6 +530,111 @@ final class AppModel: ObservableObject {
             worktreePath: writable ? room.worktreePath : nil,
             projectPath: room.projectPath
         )
+    }
+
+
+    private func startConnectBridge() {
+        let token = BridgeToken.make()
+        bridgeToken = token
+        let server = LocalBridgeServer { [weak self] request in
+            guard let self else {
+                return BridgeHTTPResponse(status: 503, contentType: "text/plain; charset=utf-8", body: "unavailable")
+            }
+            if Thread.isMainThread {
+                return MainActor.assumeIsolated { self.routeBridge(request) }
+            }
+            return DispatchQueue.main.sync {
+                MainActor.assumeIsolated { self.routeBridge(request) }
+            }
+        }
+        do {
+            try server.start()
+            bridgeServer = server
+            bridgePort = server.port
+            let endpoint = BridgeEndpoint(host: "127.0.0.1", port: server.port, token: token)
+            let occupants = [screenName] + ParticipantID.agentOrder.map(\.screenName)
+            let prompt = ConnectPrompt.render(endpoint: endpoint, occupantNames: occupants)
+            connectIssuedAt = Date()
+            connectPrompt = prompt
+            try? BridgeFiles.write(endpoint: endpoint, prompt: prompt, directory: WorktreeManager.applicationSupport())
+        } catch {
+            bridgePort = 0
+            connectPrompt = "ShadowChat could not open the local bridge on 127.0.0.1. \(error.localizedDescription)"
+        }
+    }
+
+    private func routeBridge(_ request: BridgeHTTPRequest) -> BridgeHTTPResponse {
+        BridgeRouter.handle(request: request, expectedToken: bridgeToken) { action in
+            switch action {
+            case .join(let screenName, let program):
+                return self.registerGuest(screenName: screenName, program: program)
+            case .transcript(let room):
+                return self.bridgeTranscript(roomName: room)
+            case .post(let screenName, let text, let room):
+                return self.postGuest(screenName: screenName, text: text, roomName: room)
+            }
+        }
+    }
+
+    private func registerGuest(screenName: String, program: String) -> BridgeHTTPResponse {
+        guard let name = BridgeNames.canonical(screenName: screenName, program: program) else {
+            return BridgeHTTPResponse(status: 400, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"screen name required\"}")
+        }
+        if !joinedGuests.contains(name) {
+            joinedGuests.append(name)
+        }
+        let escaped = BridgeRouter.jsonString(name)
+        return BridgeHTTPResponse(status: 200, contentType: "application/json; charset=utf-8", body: "{\"ok\":true,\"screenName\":\"\(escaped)\"}")
+    }
+
+    private func bridgeTranscript(roomName: String) -> BridgeHTTPResponse {
+        guard let room = roomNamed(roomName) else {
+            return BridgeHTTPResponse(status: 404, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"unknown room\"}")
+        }
+        let lines = (messages[room.id] ?? []).suffix(40).map { message -> String in
+            let flat = message.body.replacingOccurrences(of: "\n", with: " ")
+            let clipped = flat.count > 500 ? String(flat.prefix(500)) + "…" : flat
+            return "\(message.senderName): \(clipped)"
+        }
+        let text = (["room: \(room.name)"] + lines).joined(separator: "\n")
+        return BridgeHTTPResponse(status: 200, contentType: "text/plain; charset=utf-8", body: text + "\n")
+    }
+
+    private func postGuest(screenName: String, text: String, roomName: String) -> BridgeHTTPResponse {
+        do {
+            let message = try BridgeInbox.insert(
+                database: database,
+                rooms: rooms,
+                screenName: screenName,
+                text: text,
+                roomName: roomName
+            )
+            append(message)
+            planGuest(roomID: message.roomID, text: message.body)
+            let escaped = BridgeRouter.jsonString(message.senderName)
+            return BridgeHTTPResponse(status: 200, contentType: "application/json; charset=utf-8", body: "{\"ok\":true,\"screenName\":\"\(escaped)\"}")
+        } catch BridgeFailure.unknownRoom {
+            return BridgeHTTPResponse(status: 404, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"unknown room\"}")
+        } catch {
+            return BridgeHTTPResponse(status: 400, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"rejected\"}")
+        }
+    }
+
+    private func planGuest(roomID: String, text: String) {
+        guard let room = room(roomID) else { return }
+        var engine = engines[roomID] ?? TurnEngine(phase: room.runState)
+        let plan = BridgeTurnPolicy.plan(text: text, phase: engine.phase, turnLimit: room.turnLimit, roster: buddies)
+        guard !plan.isEmpty else { return }
+        engine.enqueue(plan)
+        engines[roomID] = engine
+        ensureLoop(roomID)
+        signal(for: roomID).notify()
+    }
+
+    private func roomNamed(_ name: String) -> Room? {
+        let wanted = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let target = wanted.isEmpty ? "Lobby" : wanted
+        return rooms.first { $0.name.compare(target, options: .caseInsensitive) == .orderedSame }
     }
 
     private func signal(for roomID: String) -> AsyncSignal {

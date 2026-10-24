@@ -15,11 +15,13 @@
 		3F447AEF99441C752982A3DB /* ChatWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA28931343F189DC80BBDC3D /* ChatWindowView.swift */; };
 		46C4590690BEEBA545BD5355 /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B91DA090881A34CC6482EAE /* Database.swift */; };
 		5045070E943C7D77643A861C /* TurnEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0F072F1C9A58A7CA0885DD /* TurnEngineTests.swift */; };
+		53E70EE462ABAA7EC7D60103 /* ConnectBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB3D91E300BCC76B34BE9370 /* ConnectBridgeTests.swift */; };
 		574B2E757C0F25A16EB9C7E0 /* TurnPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04305D704C06DD8DE4096A27 /* TurnPlanner.swift */; };
 		600BB33CE5E6FF1A26543964 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEECD5E64FC4A8AD3B7AB51F /* AppModel.swift */; };
 		6BF8BF377C45366A3F4ED16F /* StreamParsers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17881FBEA8852D8035F84539 /* StreamParsers.swift */; };
 		6D664A95EBD32363BB627083 /* StreamParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8A8C450A679014B4440D158 /* StreamParserTests.swift */; };
 		7672D607AA03914BA447F47A /* WorktreeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FB91B6E9F48B0A5B4F2E2B /* WorktreeManager.swift */; };
+		806B35692E307D7CF3C35B36 /* LocalBridgeServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D936C1AA79D5015E708E5AC6 /* LocalBridgeServer.swift */; };
 		8B6888C719243A4EC2356052 /* BuddyListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD4CDAE145784C71549CC3AF /* BuddyListView.swift */; };
 		9A617054BA57D993346B6B1D /* SupportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F082BF2F43691C40B1EFDD22 /* SupportTests.swift */; };
 		A48FEC9AE5770EF6B22818AC /* PresenceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E4FDC27D6D35CC22EA7B135 /* PresenceProbe.swift */; };
@@ -30,6 +32,7 @@
 		DADC11753B695D8AB9B53671 /* ComposeBox.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53EA728D72D04EF04D81687 /* ComposeBox.swift */; };
 		E3C2346BDB89F6DF6D2F87A8 /* AgentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52181C984587FC775ACB2D79 /* AgentService.swift */; };
 		EA5525A5E3E415D854E4E8B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 61E1798A930FC7192EA4F879 /* Assets.xcassets */; };
+		F3A6C66E91ECD3DEB8E71CBF /* SystemConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 272AF08CA4B7CA63A9D2A588 /* SystemConnectView.swift */; };
 		FA9591AB8F6D8B257DE24646 /* ProcessRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F7EBBCB8A661307B6FB3AB5 /* ProcessRunner.swift */; };
 /* End PBXBuildFile section */
 
@@ -49,6 +52,7 @@
 		0CBA1A5B07C5610F964DB577 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		17881FBEA8852D8035F84539 /* StreamParsers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamParsers.swift; sourceTree = "<group>"; };
 		1F7EBBCB8A661307B6FB3AB5 /* ProcessRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessRunner.swift; sourceTree = "<group>"; };
+		272AF08CA4B7CA63A9D2A588 /* SystemConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemConnectView.swift; sourceTree = "<group>"; };
 		2BBC0996A09920D99FAEF248 /* ShadowChatApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShadowChatApp.swift; sourceTree = "<group>"; };
 		2F154A83AAD6CC6414166C25 /* DatabaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseTests.swift; sourceTree = "<group>"; };
 		3D2DB858916667B585ED8FBE /* ShadowChatTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ShadowChatTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -65,9 +69,11 @@
 		AA28931343F189DC80BBDC3D /* ChatWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatWindowView.swift; sourceTree = "<group>"; };
 		AEECD5E64FC4A8AD3B7AB51F /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		B53EA728D72D04EF04D81687 /* ComposeBox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeBox.swift; sourceTree = "<group>"; };
+		BB3D91E300BCC76B34BE9370 /* ConnectBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectBridgeTests.swift; sourceTree = "<group>"; };
 		D10D4A3B7994767076DD19A5 /* CLIInvocationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIInvocationTests.swift; sourceTree = "<group>"; };
 		D490C98B28CA47F5A7756CD5 /* TurnPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnPlannerTests.swift; sourceTree = "<group>"; };
 		D8A8C450A679014B4440D158 /* StreamParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamParserTests.swift; sourceTree = "<group>"; };
+		D936C1AA79D5015E708E5AC6 /* LocalBridgeServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalBridgeServer.swift; sourceTree = "<group>"; };
 		DC0F072F1C9A58A7CA0885DD /* TurnEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnEngineTests.swift; sourceTree = "<group>"; };
 		DD4CDAE145784C71549CC3AF /* BuddyListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuddyListView.swift; sourceTree = "<group>"; };
 		F082BF2F43691C40B1EFDD22 /* SupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportTests.swift; sourceTree = "<group>"; };
@@ -105,6 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				D10D4A3B7994767076DD19A5 /* CLIInvocationTests.swift */,
+				BB3D91E300BCC76B34BE9370 /* ConnectBridgeTests.swift */,
 				2F154A83AAD6CC6414166C25 /* DatabaseTests.swift */,
 				D8A8C450A679014B4440D158 /* StreamParserTests.swift */,
 				F082BF2F43691C40B1EFDD22 /* SupportTests.swift */,
@@ -120,6 +127,7 @@
 				DD4CDAE145784C71549CC3AF /* BuddyListView.swift */,
 				AA28931343F189DC80BBDC3D /* ChatWindowView.swift */,
 				B53EA728D72D04EF04D81687 /* ComposeBox.swift */,
+				272AF08CA4B7CA63A9D2A588 /* SystemConnectView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -128,6 +136,7 @@
 			isa = PBXGroup;
 			children = (
 				C07B9837382EFE71ED39B99B /* Agents */,
+				6EA011D8B8F416EB806F8150 /* Bridge */,
 				77E5AFBFAEE922E72147DD14 /* Coordinator */,
 				9D8A56C821BF72A94615F88B /* Model */,
 				1974C1E8E324C3B184F39F5C /* Persistence */,
@@ -140,6 +149,14 @@
 				2BBC0996A09920D99FAEF248 /* ShadowChatApp.swift */,
 			);
 			path = ShadowChat;
+			sourceTree = "<group>";
+		};
+		6EA011D8B8F416EB806F8150 /* Bridge */ = {
+			isa = PBXGroup;
+			children = (
+				D936C1AA79D5015E708E5AC6 /* LocalBridgeServer.swift */,
+			);
+			path = Bridge;
 			sourceTree = "<group>";
 		};
 		724153D5DA9288E8C81CEED6 /* Planner */ = {
@@ -288,11 +305,13 @@
 				DADC11753B695D8AB9B53671 /* ComposeBox.swift in Sources */,
 				46C4590690BEEBA545BD5355 /* Database.swift in Sources */,
 				B2BD98D82762C038DEE3F603 /* KeychainStore.swift in Sources */,
+				806B35692E307D7CF3C35B36 /* LocalBridgeServer.swift in Sources */,
 				D8D3B0C1474C9E20D0FC5B0C /* Models.swift in Sources */,
 				A48FEC9AE5770EF6B22818AC /* PresenceProbe.swift in Sources */,
 				FA9591AB8F6D8B257DE24646 /* ProcessRunner.swift in Sources */,
 				D68F90AE5BE5F44EB9D9F529 /* ShadowChatApp.swift in Sources */,
 				6BF8BF377C45366A3F4ED16F /* StreamParsers.swift in Sources */,
+				F3A6C66E91ECD3DEB8E71CBF /* SystemConnectView.swift in Sources */,
 				37F03A7DE88D2D8C98A5B8D9 /* TurnEngine.swift in Sources */,
 				574B2E757C0F25A16EB9C7E0 /* TurnPlanner.swift in Sources */,
 				7672D607AA03914BA447F47A /* WorktreeManager.swift in Sources */,
@@ -304,6 +323,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				38F9F6CDC44A3A4FA62D0D82 /* CLIInvocationTests.swift in Sources */,
+				53E70EE462ABAA7EC7D60103 /* ConnectBridgeTests.swift in Sources */,
 				132FF36C0145F866BEF0F644 /* DatabaseTests.swift in Sources */,
 				6D664A95EBD32363BB627083 /* StreamParserTests.swift in Sources */,
 				9A617054BA57D993346B6B1D /* SupportTests.swift in Sources */,
