@@ -19,7 +19,7 @@ History is SQLite at `~/Library/Application Support/ShadowChat/shadowchat.sqlite
 Requires Xcode 27 and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```bash
-cd /Users/me/Projects/ShadowChat
+cd /path/to/ShadowChat
 xcodegen generate
 xcodebuild -project ShadowChat.xcodeproj -scheme ShadowChat -destination 'platform=macOS' -configuration Debug test
 xcodebuild -project ShadowChat.xcodeproj -scheme ShadowChat -destination 'platform=macOS' -configuration Debug build
@@ -61,9 +61,9 @@ Executables are resolved from a short absolute search list. If the file is missi
 
 Search order:
 
-- Claude Code: `/Users/me/.local/bin/claude`, `~/.local/bin/claude`, `/usr/local/bin/claude`, `/opt/homebrew/bin/claude`
-- Codex: `/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex`, `~/.codex/plugins/.plugin-appserver/codex-cli/bin/codex`, `/opt/homebrew/bin/codex`, `/usr/local/bin/codex`
-- CursorGrok: `~/.local/bin/cursor-agent`, `~/.local/bin/agent`, otherwise `/Applications/Cursor.app/Contents/Resources/app/bin/cursor` with the `agent` subcommand
+- Claude Code: `~/.local/bin/claude`, `/usr/local/bin/claude`, `/opt/homebrew/bin/claude`, then the `claude` executable on `PATH`
+- Codex: `/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex`, `~/.codex/plugins/.plugin-appserver/codex-cli/bin/codex`, `/opt/homebrew/bin/codex`, `/usr/local/bin/codex`, then `codex` on `PATH`
+- CursorGrok: `~/.local/bin/cursor-agent`, `~/.local/bin/agent`, `cursor-agent` on `PATH`, otherwise `/Applications/Cursor.app/Contents/Resources/app/bin/cursor` with the `agent` subcommand
 
 Verified against Claude Code 2.1.307, Codex CLI 0.164.0-alpha.11, and cursor-agent 2026.10.22. Prompts are process arguments. Nothing is passed through a shell.
 
@@ -140,7 +140,7 @@ cursor-agent -p \
   "<prompt>"
 ```
 
-File changes on: the same command without `--mode plan`. `--sandbox enabled` stays. `--trust` records workspace trust so the headless process does not wait on a prompt. It is not `--force` or `--yolo`, and those flags are not passed. `--new-session-id` is not a real flag in this CLI. A later turn passes `--resume <chat-id>` when a session id was parsed from the stream. The model id is the Cursor catalog id `cursor-grok-4.5-high`. This machine was not logged into Cursor Agent, so `cursor-agent --list-models` could not confirm the catalog at runtime. Change is not exposed in Setup; the id is the adapter default.
+File changes on: the same command without `--mode plan`. `--sandbox enabled` stays. `--trust` records workspace trust so the headless process does not wait on a prompt. It is not `--force` or `--yolo`, and those flags are not passed. `--new-session-id` is not a real flag in this CLI. A later turn passes `--resume <chat-id>` when a session id was parsed from the stream. The model id is the Cursor catalog id `cursor-grok-4.5-high`. Confirm it with `cursor-agent --list-models` after `cursor-agent login`. Change is not exposed in Setup; the id is the adapter default.
 
 Sign in with `cursor agent login` (or `cursor-agent login`). Until then the buddy stays offline.
 
@@ -200,7 +200,7 @@ Paste that block into Codex, Claude, Antigravity, Cursor, Grok, Grok Bot, or Mus
 
 A missing or wrong token is refused. There is no shell endpoint. Message text is stored as chat and is never executed. A bridge line shows up under the caller's screen name. It does not press Start. @mentions are queued only while that room is already Started. A hello with no mention does not take the roundtable roster.
 
-Cursor Agent on this machine reports `Not logged in`. The CursorGrok buddy stays offline until `cursor-agent login`. Antigravity.app 2.26.0 is a GUI and has no headless chat CLI, so paste the prompt into its chat. Grok Bot.app is a GUI as well. ShadowChat does not launch either app.
+The CursorGrok buddy stays offline until `cursor-agent login`. Antigravity.app is a GUI and has no headless chat CLI, so paste the prompt into its chat. Grok Bot.app is a GUI as well. ShadowChat does not launch either app.
 
 The outbound adapters (Claude Code, `codex exec`, the xAI API, and `cursor-agent`) stay in place. The bridge is an additional way for those programs to speak after you paste the prompt.
 

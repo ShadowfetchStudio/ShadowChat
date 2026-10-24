@@ -82,7 +82,7 @@ final class CLIInvocationTests: XCTestCase {
         XCTAssertNil(body["authorization"])
         let fresh = CLICommands.grokBody(prompt: prompt, previousResponseID: nil)
         XCTAssertNil(fresh["previous_response_id"])
-        let hidden = "/Users/example/Library/Application Support/ShadowChat/worktrees/room"
+        let hidden = "/Users/me/Library/Application Support/ShadowChat/worktrees/room"
         let readOnlyPrompt = PromptText.make(
             speaker: "Codex",
             roomName: "Lobby",

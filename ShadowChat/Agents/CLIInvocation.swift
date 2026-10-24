@@ -7,44 +7,54 @@ struct CLIInvocation: Equatable {
 }
 
 enum CLIPaths {
-    static let claude = "/Users/me/.local/bin/claude"
     static let codex = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"
-    static let cursorAgent = "/Users/me/.local/bin/cursor-agent"
     static let cursorApp = "/Applications/Cursor.app/Contents/Resources/app/bin/cursor"
     static let git = "/usr/bin/git"
     static let cursorGrokModel = "cursor-grok-4.5-high"
     static let defaultGrokModel = "grok-4.7"
 
     static func resolveClaude() -> String {
-        firstExecutable([
-            claude,
-            homeBinary("claude"),
-            "/usr/local/bin/claude",
-            "/opt/homebrew/bin/claude"
-        ]) ?? claude
+        firstExecutable(
+            [homeBinary("claude"), "/usr/local/bin/claude", "/opt/homebrew/bin/claude"]
+            + pathExecutables("claude")
+        ) ?? homeBinary("claude")
     }
 
     static func resolveCodex() -> String {
-        firstExecutable([
-            codex,
-            "\(NSHomeDirectory())/.codex/plugins/.plugin-appserver/codex-cli/bin/codex",
-            "/opt/homebrew/bin/codex",
-            "/usr/local/bin/codex"
-        ]) ?? codex
+        firstExecutable(
+            [
+                codex,
+                homePath(".codex/plugins/.plugin-appserver/codex-cli/bin/codex"),
+                "/opt/homebrew/bin/codex",
+                "/usr/local/bin/codex"
+            ] + pathExecutables("codex")
+        ) ?? codex
     }
 
     static func resolveCursor() -> (path: String, prefix: [String]) {
-        if let agent = firstExecutable([cursorAgent, homeBinary("cursor-agent"), homeBinary("agent")]) {
+        let candidates = [homeBinary("cursor-agent"), homeBinary("agent")] + pathExecutables("cursor-agent")
+        if let agent = firstExecutable(candidates) {
             return (agent, [])
         }
         if FileManager.default.isExecutableFile(atPath: cursorApp) {
             return (cursorApp, ["agent"])
         }
-        return (cursorAgent, [])
+        return (homeBinary("cursor-agent"), [])
     }
 
     private static func homeBinary(_ name: String) -> String {
-        NSHomeDirectory() + "/.local/bin/" + name
+        homePath(".local/bin/\(name)")
+    }
+
+    private static func homePath(_ relative: String) -> String {
+        relative.split(separator: "/").reduce(FileManager.default.homeDirectoryForCurrentUser) { url, part in
+            url.appendingPathComponent(String(part))
+        }.path
+    }
+
+    private static func pathExecutables(_ name: String) -> [String] {
+        let path = ProcessInfo.processInfo.environment["PATH"] ?? ""
+        return path.split(separator: ":").filter { !$0.isEmpty }.map { "\($0)/\(name)" }
     }
 
     private static func firstExecutable(_ paths: [String]) -> String? {

@@ -2,10 +2,12 @@ import Foundation
 
 enum PresenceProbe {
     static func probe() -> [ParticipantID: Presence] {
-        let claudeInstalled = FileManager.default.isExecutableFile(atPath: CLIPaths.claude)
-        let claudeText = claudeInstalled ? capture(CLIPaths.claude, ["auth", "status"]).text : ""
-        let codexInstalled = FileManager.default.isExecutableFile(atPath: CLIPaths.codex)
-        let codexText = codexInstalled ? capture(CLIPaths.codex, ["login", "status"]).text : ""
+        let claudePath = CLIPaths.resolveClaude()
+        let claudeInstalled = FileManager.default.isExecutableFile(atPath: claudePath)
+        let claudeText = claudeInstalled ? capture(claudePath, ["auth", "status"]).text : ""
+        let codexPath = CLIPaths.resolveCodex()
+        let codexInstalled = FileManager.default.isExecutableFile(atPath: codexPath)
+        let codexText = codexInstalled ? capture(codexPath, ["login", "status"]).text : ""
         let cursor = CLIPaths.resolveCursor()
         let cursorInstalled = FileManager.default.isExecutableFile(atPath: cursor.path)
         let cursorArgs = cursor.prefix + ["status"]
@@ -20,7 +22,7 @@ enum PresenceProbe {
 
     static func claude(installed: Bool, statusText: String) -> Presence {
         guard installed else {
-            return Presence(online: false, reason: "Claude Code CLI is not installed at \(CLIPaths.claude).")
+            return Presence(online: false, reason: "Claude Code CLI is not installed. Look for the claude executable on PATH or at ~/.local/bin/claude.")
         }
         if loggedIn(statusText) {
             return Presence(online: true, reason: "Online")

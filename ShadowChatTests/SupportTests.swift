@@ -6,7 +6,8 @@ final class SupportTests: XCTestCase {
     func testPresenceReasons() {
         let missingClaude = PresenceProbe.claude(installed: false, statusText: "")
         XCTAssertFalse(missingClaude.online)
-        XCTAssertTrue(missingClaude.reason.contains(CLIPaths.claude))
+        XCTAssertTrue(missingClaude.reason.contains("~/.local/bin/claude"))
+        XCTAssertFalse(missingClaude.reason.contains("/Users/"))
 
         let signedOut = PresenceProbe.claude(installed: true, statusText: #"{"loggedIn": false}"#)
         XCTAssertFalse(signedOut.online)

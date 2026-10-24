@@ -18,3 +18,5 @@ playground.xcworkspace
 *.pem
 *.p12
 secrets.*
+bridge.json
+connect-prompt.txt
