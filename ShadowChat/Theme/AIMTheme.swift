@@ -132,21 +132,26 @@ final class DraggableView: NSView {
 
 struct WindowConfigurator: NSViewRepresentable {
     var title: String
+    var dialog: Bool = false
 
     func makeNSView(context: Context) -> NSView {
         let view = TitlebarHider()
         view.title = title
+        view.dialog = dialog
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
         (nsView as? TitlebarHider)?.title = title
+        (nsView as? TitlebarHider)?.dialog = dialog
         (nsView as? TitlebarHider)?.apply()
     }
 }
 
 final class TitlebarHider: NSView {
     var title = ""
+    /// Dialogs keep their own small size instead of the buddy-list minimums.
+    var dialog = false
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -184,8 +189,10 @@ final class TitlebarHider: NSView {
         guard let visible = (window.screen ?? NSScreen.main)?.visibleFrame else { return }
         var frame = window.frame
         guard frame.width > 40, frame.height > 40 else { return }
-        if frame.width < 280 { frame.size.width = min(330, visible.width - 16) }
-        if frame.height < 420 { frame.size.height = min(560, visible.height - 16) }
+        if !dialog {
+            if frame.width < 280 { frame.size.width = min(330, visible.width - 16) }
+            if frame.height < 420 { frame.size.height = min(560, visible.height - 16) }
+        }
         if frame.minX < visible.minX { frame.origin.x = visible.minX + 8 }
         if frame.maxX > visible.maxX { frame.origin.x = visible.maxX - frame.width - 8 }
         if frame.minY < visible.minY { frame.origin.y = visible.minY + 8 }
@@ -439,7 +446,7 @@ struct SetupSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             ClassicTitleBar(title: "ShadowChat Setup", showWindowControls: false) {
-                model.showingKeySheet = false
+                ClassicDialog.close("ShadowChat Setup")
             }
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -488,11 +495,36 @@ struct SetupSheet: View {
                 .background(AIMTheme.cream)
                 .overlay(BevelOverlay(raised: false))
 
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Preferences")
+                        .font(AIMTheme.font(size: 12, bold: true))
+                        .foregroundStyle(.black)
+                    HStack(alignment: .top, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Toggle("Play sounds", isOn: $model.soundsOn)
+                            Toggle("Show timestamps", isOn: $model.showTimestamps)
+                            Toggle("Show smileys as pictures", isOn: $model.smileyGraphics)
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Toggle("Auto sign on at launch", isOn: $model.autoSignOn)
+                            Toggle("Open windows for new messages", isOn: $model.openOnIncoming)
+                            Toggle("Show Connect window at launch", isOn: $model.showConnectAtLaunch)
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                    .font(AIMTheme.font(size: 11))
+                    .foregroundStyle(.black)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AIMTheme.cream)
+                .overlay(BevelOverlay(raised: false))
+
                 HStack(spacing: 8) {
                     Button("Save") {
                         model.saveSetup(screenName: name, modelName: modelName, apiKey: keyDraft)
                         keyDraft = ""
-                        model.showingKeySheet = false
+                        ClassicDialog.close("ShadowChat Setup")
                     }
                     .buttonStyle(AIMButtonStyle())
                     if model.keySaved {
@@ -503,7 +535,7 @@ struct SetupSheet: View {
                         .buttonStyle(AIMButtonStyle())
                     }
                     Spacer()
-                    Button("Close") { model.showingKeySheet = false }
+                    Button("Close") { ClassicDialog.close("ShadowChat Setup") }
                         .buttonStyle(AIMButtonStyle())
                 }
                 .padding(.top, 2)
@@ -512,10 +544,13 @@ struct SetupSheet: View {
             .background(AIMTheme.client)
             .padding(4)
         }
-        .frame(width: 440)
+        .frame(width: 480)
         .fixedSize(horizontal: false, vertical: true)
         .background(AIMTheme.frameBlue)
+        .ignoresSafeArea(.container, edges: .top)
+        .overlay(WindowConfigurator(title: "ShadowChat Setup", dialog: true).frame(width: 0, height: 0))
         .preferredColorScheme(.light)
+        .onDisappear { model.showingKeySheet = false }
         .onAppear {
             name = model.screenName
             modelName = model.grokModel
@@ -553,7 +588,7 @@ enum ScreenColors {
 }
 
 enum TranscriptRenderer {
-    static func render(_ messages: [ChatMessage]) -> NSAttributedString {
+    static func render(_ messages: [ChatMessage], timestamps: Bool = false, smileys: Bool = false) -> NSAttributedString {
         let result = NSMutableAttributedString()
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = 1.5
@@ -566,8 +601,18 @@ enum TranscriptRenderer {
             .paragraphStyle: paragraph
         ]
         let noteFont = AIMTheme.nsFont(size: 12, italic: true)
+        let stampAttrs: [NSAttributedString.Key: Any] = [
+            .font: AIMTheme.nsFont(size: 10),
+            .foregroundColor: NSColor.darkGray,
+            .paragraphStyle: paragraph
+        ]
         for message in messages {
+            if message.status == .streaming && message.body.isEmpty {
+                // The "is typing…" line under the transcript covers a reply that has not started yet.
+                continue
+            }
             let nameFont = AIMTheme.nsFont(size: 12, bold: true)
+            let isNotice = message.senderName == "ShadowChat"
             let name = NSAttributedString(
                 string: message.senderName,
                 attributes: [
@@ -577,13 +622,27 @@ enum TranscriptRenderer {
                 ]
             )
             result.append(name)
+            if timestamps {
+                result.append(NSAttributedString(string: " " + TranscriptStamp.text(for: message.createdAt), attributes: stampAttrs))
+            }
             result.append(NSAttributedString(string: ": ", attributes: bodyAttrs))
+            let body: NSMutableAttributedString
             if message.sender == .me, let rtf = message.rtf,
                let rich = NSAttributedString(rtf: rtf, documentAttributes: nil), rich.length > 0 {
-                result.append(rich)
+                body = NSMutableAttributedString(attributedString: rich)
+            } else if isNotice {
+                body = NSMutableAttributedString(string: message.body, attributes: [
+                    .font: noteFont,
+                    .foregroundColor: NSColor(calibratedWhite: 0.30, alpha: 1),
+                    .paragraphStyle: paragraph
+                ])
             } else {
-                result.append(NSAttributedString(string: message.body, attributes: bodyAttrs))
+                body = NSMutableAttributedString(string: message.body, attributes: bodyAttrs)
             }
+            if smileys {
+                Smileys.replace(in: body)
+            }
+            result.append(body)
             if message.status == .cancelled {
                 result.append(NSAttributedString(
                     string: " (cancelled)",
@@ -598,5 +657,12 @@ enum TranscriptRenderer {
             result.append(NSAttributedString(string: "\n", attributes: bodyAttrs))
         }
         return result
+    }
+}
+
+enum ClassicDialog {
+    /// Closes a dialog window by the title its WindowConfigurator gave it.
+    static func close(_ title: String) {
+        NSApp.windows.first { $0.title == title && $0.isVisible }?.close()
     }
 }

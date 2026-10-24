@@ -12,6 +12,8 @@ struct BuddyListView: View {
             ClassicTitleBar(title: model.signedOn ? (model.screenName.isEmpty ? "Me" : model.screenName) : "Sign On")
             VStack(spacing: 0) {
                 if model.signedOn {
+                    buddyMenuStrip
+                    myStatusHeader
                     groupList
                     signedOnToolbar
                 } else {
@@ -31,7 +33,12 @@ struct BuddyListView: View {
         .overlay(WindowConfigurator(title: "ShadowChat").frame(width: 0, height: 0))
         .frame(minWidth: 320, minHeight: 580)
         .preferredColorScheme(.light)
-        .onAppear { if !model.showingWelcome { openWindow(id: "connect") } }
+        .onAppear {
+            if !model.showingWelcome && model.autoSignOn && !model.signedOn {
+                model.signOn()
+            }
+            if !model.showingWelcome && model.showConnectAtLaunch { openWindow(id: "connect") }
+        }
         .onChange(of: model.connectRequest) { _, _ in openWindow(id: "connect") }
         .onChange(of: model.openRequest) { _, request in
             guard let request else { return }
@@ -42,10 +49,8 @@ struct BuddyListView: View {
         } message: {
             Text(model.alert ?? "")
         }
-        .sheet(isPresented: $model.showingKeySheet) {
-            SetupSheet()
-                .environmentObject(model)
-        }
+        .onChange(of: model.showingKeySheet) { _, show in if show { openWindow(id: "setup") } }
+        .onChange(of: model.showingAwaySheet) { _, show in if show { openWindow(id: "away") } }
         .sheet(isPresented: $model.showingWelcome) {
             WelcomeSheet()
                 .environmentObject(model)
@@ -103,6 +108,13 @@ struct BuddyListView: View {
                     .font(AIMTheme.font(size: 10))
                     .foregroundStyle(.black.opacity(0.72))
                     .lineLimit(1)
+                HStack(spacing: 12) {
+                    Toggle("Auto sign on", isOn: $model.autoSignOn)
+                    Toggle("Sounds", isOn: $model.soundsOn)
+                }
+                .toggleStyle(.checkbox)
+                .font(AIMTheme.font(size: 10.5))
+                .foregroundStyle(.black)
             }
 
             VStack(alignment: .leading, spacing: 5) {
@@ -171,19 +183,27 @@ struct BuddyListView: View {
     }
 
     private var groupList: some View {
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            groupListBody(now: context.date)
+        }
+    }
+
+    private func groupListBody(now: Date) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 2) {
                 let onlineAgents = model.buddies.filter { $0.online && $0.enabled }.count
                 group("Agents", countBadge: "\(onlineAgents)/\(model.buddies.count)") {
                     ForEach(model.buddies) { buddy in
                         let isOnline = buddy.online && buddy.enabled
+                        let typing = model.rooms.contains { model.typingNames(roomID: $0.id).contains(buddy.id.screenName) }
                         row(
                             dotState: isOnline ? .online : .offline,
                             title: buddy.id.screenName,
-                            trailing: isOnline ? "Online" : (buddy.enabled ? "Offline" : "Off"),
+                            trailing: typing ? "✎ typing…" : (isOnline ? "Online" : (buddy.enabled ? "Offline" : "Off")),
                             selected: selection == .buddy(buddy.id),
                             online: isOnline,
-                            help: buddy.reason
+                            help: buddy.reason,
+                            transition: model.transition(for: buddy.id.screenName, now: now)
                         ) {
                             selection = .buddy(buddy.id)
                         } double: {
@@ -200,19 +220,22 @@ struct BuddyListView: View {
                 let connectedCount = model.joinedGuests.count
                 group("Bridge Programs", countBadge: connectedCount > 0 ? "\(connectedCount) live" : "\(bridgeCount)") {
                     ForEach(ConnectPreset.bridgeRosterPresets) { preset in
-                        let connected = model.isGuestConnected(preset.screenName)
+                        let activity = model.guestActivity(preset.screenName, now: now)
+                        let connected = model.isGuestConnected(preset.screenName) && activity != .gone
                         let installed = preset.installedAppURL() != nil
                         row(
                             dotState: connected ? .online : (installed ? .installed : .offline),
                             title: preset.displayName,
-                            trailing: connected ? "Connected" : (installed ? "Installed ↗" : "Copy Prompt"),
+                            trailing: guestTrailing(activity: activity, connected: connected, installed: installed),
                             selected: selection == .guest(preset.screenName),
                             online: connected || installed,
+                            idle: isIdle(activity),
                             help: connected
                                 ? "\(preset.displayName) is connected via 127.0.0.1:\(model.bridgePort). Double-click to open Lobby."
                                 : (installed
                                     ? "Click to copy prompt for \(preset.displayName). Double-click to copy & open \(preset.displayName)."
-                                    : "Click to copy the ready-to-paste prompt for \(preset.displayName). Double-click to copy & open Connect.")
+                                    : "Click to copy the ready-to-paste prompt for \(preset.displayName). Double-click to copy & open Connect."),
+                            transition: model.transition(for: preset.screenName, now: now)
                         ) {
                             selection = .guest(preset.screenName)
                             _ = model.selectConnectPreset(preset, copyToClipboard: true)
@@ -251,13 +274,16 @@ struct BuddyListView: View {
                         }
                     }
                     ForEach(customConnectedGuests, id: \.self) { guest in
+                        let activity = model.guestActivity(guest, now: now)
                         row(
-                            dotState: .online,
+                            dotState: activity == .gone ? .offline : .online,
                             title: guest,
-                            trailing: "Connected",
+                            trailing: guestTrailing(activity: activity, connected: activity != .gone, installed: false),
                             selected: selection == .guest(guest),
-                            online: true,
-                            help: "\(guest) is connected via the localhost bridge."
+                            online: activity != .gone,
+                            idle: isIdle(activity),
+                            help: "\(guest) is connected via the localhost bridge.",
+                            transition: model.transition(for: guest, now: now)
                         ) {
                             selection = .guest(guest)
                         } double: {
@@ -270,10 +296,11 @@ struct BuddyListView: View {
                     row(
                         dotState: model.signedOn ? .online : .offline,
                         title: model.screenName.isEmpty ? "Me" : model.screenName,
-                        trailing: model.signedOn ? "Online" : "Offline",
+                        trailing: model.isAway ? "Away" : (model.signedOn ? "Online" : "Offline"),
                         selected: selection == .buddy(.me),
                         online: model.signedOn,
-                        help: model.signedOn ? "Signed on" : "Not signed on"
+                        away: model.isAway,
+                        help: model.expandedAwayMessage ?? (model.signedOn ? "Signed on" : "Not signed on")
                     ) {
                         selection = .buddy(.me)
                     } double: {
@@ -284,15 +311,20 @@ struct BuddyListView: View {
                 group("Rooms", countBadge: "\(model.rooms.count)") {
                     ForEach(model.rooms) { room in
                         let phase = (model.engines[room.id]?.phase ?? room.runState)
-                        let badge = room.kind == .lobby
-                            ? (phase == .running ? "Lobby · Run" : "Lobby")
-                            : (phase == .running ? "Project · Run" : "Project")
+                        let waiting = model.unread[room.id] ?? 0
+                        let typing = !model.typingNames(roomID: room.id).isEmpty
+                        let badge = waiting > 0
+                            ? "\(waiting) new"
+                            : (typing ? "✎ typing…" : (room.kind == .lobby
+                                ? (phase == .running ? "Lobby · Run" : "Lobby")
+                                : (phase == .running ? "Project · Run" : "Project")))
                         row(
                             dotState: phase == .running ? .online : .installed,
                             title: room.name,
                             trailing: badge,
                             selected: selection == .room(room.id),
                             online: true,
+                            bold: waiting > 0,
                             help: room.projectPath ?? "Double-click to open \(room.name)"
                         ) {
                             selection = .room(room.id)
@@ -412,6 +444,9 @@ struct BuddyListView: View {
             }
             return ""
         case nil:
+            if !model.ticker.isEmpty {
+                return model.ticker
+            }
             if !model.connectBannerText.isEmpty {
                 return model.connectBannerText
             }
@@ -462,14 +497,29 @@ struct BuddyListView: View {
         trailing: String,
         selected: Bool,
         online: Bool = true,
+        idle: Bool = false,
+        away: Bool = false,
+        bold: Bool = false,
         help: String,
+        transition: BuddyTransition? = nil,
         action: @escaping () -> Void,
         double: @escaping () -> Void
     ) -> some View {
         HStack(spacing: 7) {
-            PresenceDot(state: dotState, selected: selected)
+            Group {
+                if let transition {
+                    DoorIcon(open: transition.kind == .arrived)
+                } else if away {
+                    AwayNoteIcon().frame(width: 10, height: 10)
+                } else {
+                    PresenceDot(state: dotState, selected: selected)
+                }
+            }
+            .frame(width: 10)
             Text(title)
-                .font(AIMTheme.font(size: 11.5, bold: selected))
+                .font(AIMTheme.font(size: 11.5, bold: selected || bold || transition?.kind == .arrived))
+                .italic(transition?.kind == .departed || idle)
+                .strikethrough(transition?.kind == .departed)
                 .lineLimit(1)
             Spacer(minLength: 6)
             Text(trailing)
@@ -480,12 +530,129 @@ struct BuddyListView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .foregroundStyle(selected ? Color.white : (online ? Color.black : Color(white: 0.45)))
+        .foregroundStyle(selected ? Color.white : (online && !idle ? Color.black : Color(white: 0.45)))
         .background(selected ? AIMTheme.highlight : Color.clear)
         .contentShape(Rectangle())
         .onTapGesture(count: 2, perform: double)
         .onTapGesture(count: 1, perform: action)
         .help(help)
+    }
+
+    private func isIdle(_ activity: GuestActivity?) -> Bool {
+        if case .idle = activity { return true }
+        return false
+    }
+
+    private func guestTrailing(activity: GuestActivity?, connected: Bool, installed: Bool) -> String {
+        switch activity {
+        case .idle(let minutes)?:
+            return GuestActivity.label(minutes: minutes)
+        case .gone?:
+            return installed ? "Signed Off ↗" : "Signed Off"
+        default:
+            return connected ? "Connected" : (installed ? "Installed ↗" : "Copy Prompt")
+        }
+    }
+
+    /// The classic menu row along the top of a buddy list.
+    private var buddyMenuStrip: some View {
+        HStack(spacing: 4) {
+            ClassicMenuButton(title: "My ShadowChat", items: [
+                (model.isAway ? "I'm Back" : "Available", "", { model.comeBack() }),
+                ("Away Message…", "", { model.showingAwaySheet = true }),
+                ("---", "", {})
+            ] + model.awayPresets.map { preset in
+                ("Away: \(preset.label)", "", { model.goAway(preset.message) })
+            } + [
+                ("---", "", {}),
+                ("Setup & Preferences…", "", { model.showingKeySheet = true }),
+                ("Sign Off", "", { model.signOff() })
+            ])
+            ClassicMenuButton(title: "People", items: [
+                ("Open Lobby", "", { model.openLobby() }),
+                ("Add Project Room…", "", { chooseProject() }),
+                ("Connect a Program…", "", { openWindow(id: "connect") }),
+                ("---", "", {}),
+                ("Refresh Presence", "", { model.refreshPresence() })
+            ])
+            ClassicMenuButton(title: "Help", items: [
+                ("Welcome Guide", "", { model.showingWelcome = true }),
+                ("Chat Commands (/help)", "", {
+                    if let lobby = model.rooms.first(where: { $0.kind == .lobby }) {
+                        model.runCommand(.help, roomID: lobby.id)
+                        model.openLobby()
+                    }
+                })
+            ])
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 6)
+        .frame(height: 22)
+        .background(AIMTheme.client)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(AIMTheme.bevelDark.opacity(0.35)).frame(height: 1)
+        }
+    }
+
+    /// Logo, your screen name, and a status picker, like the top of a classic buddy list.
+    private var myStatusHeader: some View {
+        HStack(spacing: 8) {
+            Image("Logo")
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 34, height: 34)
+                .clipShape(RoundedRectangle(cornerRadius: 3))
+                .overlay(BevelOverlay(raised: false))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(model.screenName.isEmpty ? "Me" : model.screenName)
+                    .font(AIMTheme.font(size: 13, bold: true))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.6), radius: 0, x: 1, y: 1)
+                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    if model.isAway {
+                        AwayNoteIcon().frame(width: 10, height: 10)
+                    } else {
+                        PresenceDot(state: .online)
+                    }
+                    ClassicMenuButton(
+                        title: model.isAway ? "Away ▾" : "Available ▾",
+                        fontSize: 10.5,
+                        items: [
+                            ("Available", "", { model.comeBack() }),
+                            ("Custom Away Message…", "", { model.showingAwaySheet = true }),
+                            ("---", "", {})
+                        ] + model.awayPresets.map { preset in
+                            (preset.label, "", { model.goAway(preset.message) })
+                        }
+                    )
+                    .padding(.horizontal, 3)
+                    .background(AIMTheme.cream)
+                    .overlay(BevelOverlay(raised: true))
+                    .fixedSize()
+                }
+            }
+            Spacer(minLength: 0)
+            if model.totalUnread > 0 {
+                Text("\(model.totalUnread) new")
+                    .font(AIMTheme.font(size: 10, bold: true))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color(red: 1.0, green: 0.90, blue: 0.35))
+                    .overlay(BevelOverlay(raised: true))
+                    .help("Unread messages. Open a room to read them.")
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            LinearGradient(colors: [AIMTheme.logoBlue, AIMTheme.frameBlue], startPoint: .top, endPoint: .bottom)
+        )
+        .overlay(BevelOverlay(raised: true))
+        .padding(.horizontal, 6)
+        .padding(.top, 5)
+        .help(model.expandedAwayMessage ?? "You are available.")
     }
 
     private func chooseProject() {

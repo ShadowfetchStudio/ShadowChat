@@ -4,6 +4,29 @@ ShadowChat is a native macOS group instant messenger drawn in the style of a lat
 
 ---
 
+## What's new in 3.0 — the classic messenger upgrade
+
+ShadowChat 3.0 brings back the parts of a late-90s buddy list that people actually remember, and makes the app easier to live in every day.
+
+**For the nostalgic:**
+- **Door sounds.** A door creaks open when a helper or bridge program signs on and thuds shut when one signs off. A two-note bloop plays for each incoming message and a soft blip when you send. All sounds are synthesized inside the app (no borrowed audio files). Turn them off with the **Sounds** checkbox, **View → Play Sounds**, or Setup.
+- **Away messages.** Click **Available ▾** under your screen name (or **My ShadowChat → Away Message…**, **People → Away Message…** `⇧⌘A`, or the **Status** menu in any IM window). Pick a saved message or write one with the classic `%n` (screen name), `%t` (time), and `%d` (date) codes. You get the yellow sticky-note icon in the Buddy List, an away banner in every IM window, and you are set back to Available the moment you send a message.
+- **Sign-on doors and idle buddies.** Buddies who just signed on show a bold name with an open door for a few seconds; leavers show a closed door. Bridge programs that stop checking in turn grey with `Idle 7m`, then `Signed Off` after 30 minutes.
+- **"is typing…"** A status strip under every transcript shows `ClaudeCode is typing…` while a reply streams, and `Last message received at 1:24:05 PM.` otherwise. The Buddy List shows `✎ typing…` next to the helper and the room.
+- **Timestamps** (`(1:22:30 PM)` after each screen name), **smileys drawn as faces** (`:-)` → 🙂, `;-)` → 😉, `<3` → ❤️; only whole tokens, so URLs and code stay intact), a **text color** menu (**A ▾**), and a **smiley picker** (**☺ ▾**) in the format bar.
+- **Classic menus.** The Buddy List has **My ShadowChat / People / Help** along the top and a header with your screen name and status. IM windows gain **View** and **Status** menus. System notices from ShadowChat render in grey italics.
+
+**For ease of use:**
+- **Unread counts.** Rooms show `3 new` in bold, the header shows the total, and the Dock icon carries a badge. The Dock bounces once if a message lands while ShadowChat is in the background.
+- **Windows pop open for new messages** (like an old IM client) when a reply arrives in a room whose window is closed. Turn off with **View → Open Windows for New Messages**.
+- **Auto sign on** checkbox on the Sign On screen, and **Show this window at launch** on the Connect window, so returning users go straight to chatting.
+- The transcript keeps your place when you scroll up to reread instead of jumping to the bottom on every streamed word.
+- The message box is focused as soon as an IM window opens.
+- **Setup & Preferences** (`⌘,`) collects every preference in one place and, like the Away Message dialog, now opens as a single window instead of a sheet on every open window.
+- New shortcuts: `⇧⌘L` Lobby, `⇧⌘K` Connect, `⇧⌘A` Away / I'm Back, `⇧⌘T` timestamps.
+
+---
+
 ## Quick Start
 
 **Never used a chat app like this? Start here.**
@@ -286,6 +309,8 @@ The CLI working directory is that worktree, and the prompt names that path. The 
 ---
 
 ## Tests
+
+`ClassicFeatureTests` covers smiley token matching (URLs and code untouched), away-message `%n`/`%t`/`%d` expansion, idle and signed-off thresholds, sign-on door timing, valid synthesized WAV cues, and transcript timestamps.
 
 `ShadowChatTests` locks the turn planner, pause/stop queue behavior, CLI argument lists, stream parsers, SQLite persistence, worktree creation, and the localhost connect bridge (slash commands, transcript export, tailored presets for Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, Gemini, ChatGPT; `/join`, `/transcript`, `/message`, `/say`, `/wait` live wakeup, `/status`, `/prompt`, CORS `OPTIONS`, quote-safe plain-text bodies, `should_reply` loop prevention, refused tokens, and concurrent loopback stress tests).
 

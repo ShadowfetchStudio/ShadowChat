@@ -16,10 +16,14 @@ struct ChatWindowView: View {
             ClassicTitleBar(title: windowTitle)
             VStack(spacing: 0) {
                 menuBar
+                if model.isAway {
+                    awayBanner
+                }
                 if isStopped {
                     stoppedBanner
                 }
                 transcript
+                typingStrip
                 formatBar
                 composeBox
                 toolbar
@@ -34,16 +38,83 @@ struct ChatWindowView: View {
         .overlay(WindowConfigurator(title: windowTitle).frame(width: 0, height: 0))
         .frame(minWidth: 680, minHeight: 520)
         .preferredColorScheme(.light)
-        .onAppear { compose.onSend = send }
+        .background(KeyWindowObserver { isKey in model.setRoomFocused(roomID, focused: isKey) }.frame(width: 0, height: 0))
+        .onAppear {
+            compose.onSend = send
+            model.roomWindowAppeared(roomID)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { compose.focus() }
+        }
+        .onDisappear { model.roomWindowDisappeared(roomID) }
         .alert("ShadowChat", isPresented: alertBinding) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(model.alert ?? "")
         }
-        .sheet(isPresented: $model.showingKeySheet) {
-            SetupSheet()
-                .environmentObject(model)
+        .onChange(of: model.showingKeySheet) { _, show in if show { openWindow(id: "setup") } }
+        .onChange(of: model.showingAwaySheet) { _, show in if show { openWindow(id: "away") } }
+    }
+
+    private var awayBanner: some View {
+        HStack(spacing: 8) {
+            AwayNoteIcon().frame(width: 16, height: 16)
+            Text("You are away: \(model.expandedAwayMessage ?? "")")
+                .font(AIMTheme.font(size: 10.5))
+                .foregroundStyle(.black)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 6)
+            Button("I'm Back") { model.comeBack() }
+                .buttonStyle(AIMButtonStyle(compact: true))
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color(red: 1.0, green: 0.96, blue: 0.74))
+        .overlay(BevelOverlay(raised: false))
+        .padding(.horizontal, 8)
+        .padding(.top, 5)
+    }
+
+    /// The classic status strip under the transcript: who is typing, or when the last message came in.
+    private var typingStrip: some View {
+        let typing = model.typingNames(roomID: roomID)
+        let text: String
+        if typing.count == 1 {
+            text = "\(typing[0]) is typing…"
+        } else if typing.count > 1 {
+            text = "\(typing.joined(separator: ", ")) are typing…"
+        } else if let last = model.lastReceived(roomID: roomID) {
+            text = "Last message received at \(Self.shortTime(last))\(Calendar.current.isDateInToday(last) ? "" : " on \(Self.shortDate(last))")."
+        } else {
+            text = "Say hello! Press Return to send, Shift-Return for a new line."
+        }
+        return HStack(spacing: 5) {
+            if !typing.isEmpty {
+                Text("✎")
+                    .font(AIMTheme.font(size: 11, bold: true))
+                    .foregroundStyle(Color(red: 0.08, green: 0.34, blue: 0.72))
+            }
+            Text(text)
+                .font(AIMTheme.font(size: 10))
+                .italic(!typing.isEmpty)
+                .foregroundStyle(.black.opacity(0.75))
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 16)
+        .background(AIMTheme.client)
+    }
+
+    private static func shortTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm:ss a"
+        return formatter.string(from: date)
+    }
+
+    private static func shortDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M/d"
+        return formatter.string(from: date)
     }
 
     private var isStopped: Bool {
@@ -82,8 +153,10 @@ struct ChatWindowView: View {
                     ("Paste", "v", { NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil) }),
                     ("Select All", "a", { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) })
                 ])
+                ClassicMenuButton(title: "View", items: viewItems)
                 ClassicMenuButton(title: "Insert", items: mentionItems + [("— Smileys —", "", {})] + smileyItems)
                 ClassicMenuButton(title: "People", items: peopleItems)
+                ClassicMenuButton(title: model.isAway ? "Away" : "Status", items: statusItems)
                 ClassicMenuButton(title: "Connect", items: connectMenuItems)
                 Spacer(minLength: 8)
                 if let copiedLabel {
@@ -156,7 +229,12 @@ struct ChatWindowView: View {
     }
 
     private var transcript: some View {
-        TranscriptView(messages: model.messages[roomID] ?? [], scrollToBottom: true)
+        TranscriptView(
+            messages: model.messages[roomID] ?? [],
+            scrollToBottom: true,
+            timestamps: model.showTimestamps,
+            smileys: model.smileyGraphics
+        )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.white)
             .overlay(BevelOverlay(raised: false))
@@ -190,8 +268,10 @@ struct ChatWindowView: View {
                 .buttonStyle(AIMButtonStyle(chip: true))
             Button("U") { compose.toggleUnderline() }
                 .buttonStyle(AIMButtonStyle(chip: true))
-            Button(":)") { compose.insert(":) ") }
-                .buttonStyle(AIMButtonStyle(chip: true))
+            classicChipMenu(title: "A ▾", items: colorItems)
+                .help("Text color")
+            classicChipMenu(title: "☺ ▾", items: smileyItems)
+                .help("Insert a smiley")
 
             Rectangle()
                 .fill(AIMTheme.bevelDark.opacity(0.45))
@@ -376,9 +456,57 @@ struct ChatWindowView: View {
     }
 
     private var smileyItems: [(title: String, key: String, action: () -> Void)] {
-        [":)", ":(", ";)", ":D", ":P", ":O", ":'(", "8-)"].map { smiley in
-            (smiley, "", { compose.insert(smiley + " ") })
+        Smileys.menuTokens.map { smiley in
+            ("\(Smileys.face(for: smiley) ?? "")  \(smiley)", "", { compose.insert(smiley + " ") })
         }
+    }
+
+    private var colorItems: [(title: String, key: String, action: () -> Void)] {
+        let palette: [(String, NSColor)] = [
+            ("Black", .black),
+            ("Red", NSColor(calibratedRed: 0.80, green: 0.0, blue: 0.0, alpha: 1)),
+            ("Blue", NSColor(calibratedRed: 0.0, green: 0.0, blue: 0.80, alpha: 1)),
+            ("Green", NSColor(calibratedRed: 0.0, green: 0.50, blue: 0.0, alpha: 1)),
+            ("Purple", NSColor(calibratedRed: 0.50, green: 0.0, blue: 0.50, alpha: 1)),
+            ("Orange", NSColor(calibratedRed: 0.90, green: 0.45, blue: 0.0, alpha: 1)),
+            ("Teal", NSColor(calibratedRed: 0.0, green: 0.50, blue: 0.50, alpha: 1)),
+            ("Gray", NSColor(calibratedWhite: 0.45, alpha: 1))
+        ]
+        return palette.map { name, color in
+            (name, "", { compose.setColor(color) })
+        }
+    }
+
+    private var viewItems: [(title: String, key: String, action: () -> Void)] {
+        func check(_ on: Bool, _ title: String) -> String { (on ? "✓ " : "    ") + title }
+        return [
+            (check(model.showTimestamps, "Show Timestamps"), "", { model.showTimestamps.toggle() }),
+            (check(model.smileyGraphics, "Show Smileys as Pictures"), "", { model.smileyGraphics.toggle() }),
+            (check(model.soundsOn, "Play Sounds"), "", { model.soundsOn.toggle() }),
+            (check(model.openOnIncoming, "Open Windows for New Messages"), "", { model.openOnIncoming.toggle() })
+        ]
+    }
+
+    private var statusItems: [(title: String, key: String, action: () -> Void)] {
+        var items: [(title: String, key: String, action: () -> Void)] = [
+            ((model.isAway ? "    " : "✓ ") + "Available", "", { model.comeBack() }),
+            ("Custom Away Message…", "", { model.showingAwaySheet = true }),
+            ("---", "", {})
+        ]
+        for preset in model.awayPresets {
+            let on = model.awayMessage == preset.message
+            items.append(((on ? "✓ " : "    ") + preset.label, "", { model.goAway(preset.message) }))
+        }
+        return items
+    }
+
+    private func classicChipMenu(title: String, items: [(title: String, key: String, action: () -> Void)]) -> some View {
+        ClassicMenuButton(title: title, fontSize: 10.5, items: items)
+            .padding(.horizontal, 2)
+            .frame(height: 20)
+            .background(AIMTheme.client)
+            .overlay(BevelOverlay(raised: true))
+            .fixedSize()
     }
 
     private var peopleItems: [(title: String, key: String, action: () -> Void)] {

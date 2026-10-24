@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SystemConnectView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.openWindow) private var openWindow
     @State private var copied = false
     @State private var copiedOneLine = false
     @State private var copiedHandoff = false
@@ -27,6 +28,8 @@ struct SystemConnectView: View {
         .overlay(WindowConfigurator(title: windowTitle).frame(width: 0, height: 0))
         .frame(minWidth: 700, minHeight: 540)
         .preferredColorScheme(.light)
+        .onChange(of: model.showingKeySheet) { _, show in if show { openWindow(id: "setup") } }
+        .onChange(of: model.showingAwaySheet) { _, show in if show { openWindow(id: "away") } }
     }
 
     private var windowTitle: String {
@@ -204,11 +207,17 @@ struct SystemConnectView: View {
                 }
                 .help("Copy prompt and open \(appURL.deletingPathExtension().lastPathComponent)")
             }
-            Text("Works with Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, Gemini, ChatGPT, Windsurf, Aider, Goose, Cline, OpenCode, Warp, Zed & more.")
-                .font(AIMTheme.font(size: 10))
-                .foregroundStyle(.black.opacity(0.85))
-                .lineLimit(2)
-                .padding(.horizontal, 4)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Works with Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, Gemini, ChatGPT, Windsurf, Aider, Goose, Cline, OpenCode, Warp, Zed & more.")
+                    .font(AIMTheme.font(size: 10))
+                    .foregroundStyle(.black.opacity(0.85))
+                    .lineLimit(2)
+                Toggle("Show this window at launch", isOn: $model.showConnectAtLaunch)
+                    .toggleStyle(.checkbox)
+                    .font(AIMTheme.font(size: 10))
+                    .foregroundStyle(.black)
+            }
+            .padding(.horizontal, 4)
             Spacer(minLength: 6)
             CaptionTool(title: "Open Room", action: openTargetRoom) {
                 Image("Logo")

@@ -36,6 +36,12 @@ struct WelcomeSheet: View {
                     step("?", "Helper offline? Hover over it in the Buddy List to see what is needed.")
                 }
 
+                card(title: "Just like the old days") {
+                    step("•", "A door creaks open when a buddy signs on and slams when they leave. A bloop means a new message.")
+                    step("•", "Stepping out? Click Available ▾ under your name and pick an Away Message. Sending anything sets you back.")
+                    step("•", "View menu: timestamps, smileys as pictures, sounds. Setup has every preference, including Auto sign on.")
+                }
+
                 card(title: "Multi-Program AI Hub (Grok Bot, Muse, Claude, Codex, Antigravity & more)") {
                     step("•", "Click Connect, click any program's button (or right-click it in Bridge Programs), then press Paste (⌘V).")
                     step("•", "Role tags: @all (everyone) · @coders (coding apps/CLIs) · @thinkers (reasoning apps) · @bridge (external apps) · @local (built-in CLIs).")

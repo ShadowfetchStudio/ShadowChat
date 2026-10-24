@@ -65,6 +65,22 @@ final class ComposeController: ObservableObject {
         textView.typingAttributes = attrs
     }
 
+    func setColor(_ color: NSColor) {
+        guard let textView else { return }
+        let range = textView.selectedRange()
+        if range.length > 0 {
+            textView.textStorage?.addAttribute(.foregroundColor, value: color, range: range)
+        }
+        var attrs = textView.typingAttributes
+        attrs[.foregroundColor] = color
+        textView.typingAttributes = attrs
+    }
+
+    func focus() {
+        guard let textView else { return }
+        textView.window?.makeFirstResponder(textView)
+    }
+
     func insert(_ text: String) {
         guard let textView else { return }
         textView.insertText(text, replacementRange: textView.selectedRange())
@@ -164,6 +180,8 @@ struct ComposeBox: NSViewRepresentable {
 struct TranscriptView: NSViewRepresentable {
     var messages: [ChatMessage]
     var scrollToBottom: Bool = true
+    var timestamps: Bool = false
+    var smileys: Bool = false
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSScrollView()
@@ -191,12 +209,15 @@ struct TranscriptView: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let text = nsView.documentView as? NSTextView else { return }
-        let rendered = TranscriptRenderer.render(messages)
+        let rendered = TranscriptRenderer.render(messages, timestamps: timestamps, smileys: smileys)
         if text.attributedString() != rendered {
+            // Keep your place if you scrolled up to reread; follow new lines when you are at the bottom.
+            let visible = nsView.contentView.documentVisibleRect
+            let following = visible.maxY >= text.bounds.height - 48
             text.textStorage?.setAttributedString(rendered)
-            if scrollToBottom {
+            if scrollToBottom && following {
                 text.scrollToEndOfDocument(nil)
-            } else {
+            } else if !scrollToBottom {
                 text.scrollRangeToVisible(NSRange(location: 0, length: 0))
             }
         }
@@ -269,4 +290,48 @@ final class ActionTarget: NSObject {
     let body: () -> Void
     init(_ body: @escaping () -> Void) { self.body = body }
     @objc func run() { body() }
+}
+
+/// Reports when the hosting window becomes or stops being the key window.
+struct KeyWindowObserver: NSViewRepresentable {
+    var onChange: (Bool) -> Void
+
+    func makeNSView(context: Context) -> KeyWindowObserverView {
+        let view = KeyWindowObserverView()
+        view.onChange = onChange
+        return view
+    }
+
+    func updateNSView(_ nsView: KeyWindowObserverView, context: Context) {
+        nsView.onChange = onChange
+    }
+}
+
+final class KeyWindowObserverView: NSView {
+    var onChange: ((Bool) -> Void)?
+    private var tokens: [NSObjectProtocol] = []
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        tokens.forEach(NotificationCenter.default.removeObserver)
+        tokens.removeAll()
+        guard let window else { return }
+        let center = NotificationCenter.default
+        tokens.append(center.addObserver(forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main) { [weak self] _ in
+            self?.onChange?(true)
+        })
+        tokens.append(center.addObserver(forName: NSWindow.didResignKeyNotification, object: window, queue: .main) { [weak self] _ in
+            self?.onChange?(false)
+        })
+        tokens.append(center.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            if self?.window?.isKeyWindow == true { self?.onChange?(true) }
+        })
+        if window.isKeyWindow {
+            DispatchQueue.main.async { [weak self] in self?.onChange?(true) }
+        }
+    }
+
+    deinit {
+        tokens.forEach(NotificationCenter.default.removeObserver)
+    }
 }

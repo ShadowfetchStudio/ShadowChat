@@ -30,7 +30,22 @@ final class AppModel: ObservableObject {
     @Published var connectBannerText: String = ""
     @Published var showingWelcome = false
     @Published var connectRequest = UUID()
+    @Published var soundsOn: Bool { didSet { UserDefaults.standard.set(soundsOn, forKey: Prefs.sounds) } }
+    @Published var showTimestamps: Bool { didSet { UserDefaults.standard.set(showTimestamps, forKey: Prefs.timestamps) } }
+    @Published var smileyGraphics: Bool { didSet { UserDefaults.standard.set(smileyGraphics, forKey: Prefs.smileys) } }
+    @Published var autoSignOn: Bool { didSet { UserDefaults.standard.set(autoSignOn, forKey: Prefs.autoSignOn) } }
+    @Published var showConnectAtLaunch: Bool { didSet { UserDefaults.standard.set(showConnectAtLaunch, forKey: Prefs.connectAtLaunch) } }
+    @Published var openOnIncoming: Bool { didSet { UserDefaults.standard.set(openOnIncoming, forKey: Prefs.openOnIncoming) } }
+    @Published var awayPresets: [AwayPreset] { didSet { persistAwayPresets() } }
+    @Published var awayMessage: String?
+    @Published var showingAwaySheet = false
+    @Published var unread: [String: Int] = [:]
+    @Published var transitions: [String: BuddyTransition] = [:]
+    @Published var ticker = ""
     let version: String
+    var focusedRooms: Set<String> = []
+    var openRoomWindows: Set<String> = []
+    var presenceReported = false
 
     let database: Database
     private var bridgeServer: LocalBridgeServer?
@@ -58,6 +73,14 @@ final class AppModel: ObservableObject {
         let storedModel = UserDefaults.standard.string(forKey: "ShadowChat.grokModel") ?? CLIPaths.defaultGrokModel
         grokModel = storedModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? CLIPaths.defaultGrokModel : storedModel
         version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        let defaults = UserDefaults.standard
+        soundsOn = defaults.object(forKey: Prefs.sounds) as? Bool ?? true
+        showTimestamps = defaults.object(forKey: Prefs.timestamps) as? Bool ?? false
+        smileyGraphics = defaults.object(forKey: Prefs.smileys) as? Bool ?? true
+        autoSignOn = defaults.object(forKey: Prefs.autoSignOn) as? Bool ?? false
+        showConnectAtLaunch = defaults.object(forKey: Prefs.connectAtLaunch) as? Bool ?? true
+        openOnIncoming = defaults.object(forKey: Prefs.openOnIncoming) as? Bool ?? true
+        awayPresets = Self.loadAwayPresets()
         let enabled = (try? database.enabledParticipants()) ?? [:]
         buddies = ParticipantID.agentOrder.map { id in
             Buddy(id: id, enabled: enabled[id] ?? true, online: false, reason: "Checking…")
@@ -97,6 +120,7 @@ final class AppModel: ObservableObject {
         screenName = name
         UserDefaults.standard.set(name, forKey: "ShadowChat.screenName")
         signedOn = true
+        playSound(.doorOpen)
         refreshPresence()
         if let lobby = rooms.first(where: { $0.kind == .lobby }) {
             armRoom(lobby.id)
@@ -268,6 +292,8 @@ final class AppModel: ObservableObject {
 
     func signOff() {
         signedOn = false
+        awayMessage = nil
+        playSound(.doorClose)
     }
 
     func requestOpen(_ roomID: String) {
@@ -298,11 +324,15 @@ final class AppModel: ObservableObject {
         var next = buddies
         for index in next.indices {
             if let presence = report[next[index].id] {
+                if presenceReported, next[index].enabled, next[index].online != presence.online {
+                    noteTransition(next[index].id.screenName, kind: presence.online ? .arrived : .departed)
+                }
                 next[index].online = presence.online
                 next[index].reason = presence.reason
             }
         }
         buddies = next
+        presenceReported = true
     }
 
     func sendHuman(roomID: String, plain: String, rtf: Data?) {
@@ -325,6 +355,10 @@ final class AppModel: ObservableObject {
         )
         try? database.insertMessage(message)
         append(message)
+        playSound(.imSend)
+        if awayMessage != nil {
+            comeBack()
+        }
         guard let room = room(roomID) else { return }
         var engine = engines[roomID] ?? TurnEngine(phase: room.runState)
         var plan = TurnPlanner.plan(
@@ -723,18 +757,23 @@ final class AppModel: ObservableObject {
         messages[message.roomID] = list
         if message.status != .streaming {
             bridgeWaitHub.notify(roomID: message.roomID)
+            noteIncoming(message)
         }
     }
 
     private func updateStreaming(roomID: String, messageID: String, text: String, status: MessageStatus) {
         var list = messages[roomID] ?? []
         guard let index = list.firstIndex(where: { $0.id == messageID }) else { return }
+        let wasStreaming = list[index].status == .streaming
         list[index].body = text
         list[index].status = status
         messages[roomID] = list
         try? database.updateMessage(id: messageID, body: text, status: status)
         if status != .streaming {
             bridgeWaitHub.notify(roomID: roomID)
+            if wasStreaming, status == .complete, !text.isEmpty {
+                noteIncoming(list[index])
+            }
         }
     }
 
@@ -1163,8 +1202,13 @@ final class AppModel: ObservableObject {
     }
 
     private func touchGuest(screenName: String, program: String, roomName: String, isListening: Bool) {
+        let wasGone = connectedGuests.first(where: { $0.screenName.caseInsensitiveCompare(screenName) == .orderedSame })
+            .map { GuestActivity.state(lastSeen: $0.lastSeenAt) == .gone } ?? true
         if !joinedGuests.contains(where: { $0.caseInsensitiveCompare(screenName) == .orderedSame }) {
             joinedGuests.append(screenName)
+        }
+        if wasGone {
+            noteTransition(screenName, kind: .arrived)
         }
         let now = Date()
         if let index = connectedGuests.firstIndex(where: { $0.screenName.caseInsensitiveCompare(screenName) == .orderedSame }) {
