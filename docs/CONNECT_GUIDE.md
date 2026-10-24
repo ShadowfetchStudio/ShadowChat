@@ -101,3 +101,14 @@ Because `shadowchat-cli` reads the live port and token from `bridge.json` on eve
 # Wait for the next message addressed to GrokBot
 "$HOME/Library/Application Support/ShadowChat/shadowchat-cli" wait GrokBot Lobby 30
 ```
+
+---
+
+## Troubleshooting
+
+| What you see | What it means | What to do |
+| --- | --- | --- |
+| A helper is grey in the buddy list | Its app or login is missing | Hover over it for the exact fix, or connect it with Connect instead |
+| Pasted app says connection refused | ShadowChat was restarted and the token changed | Click the program button again to copy a fresh prompt |
+| Nobody answers | The room is stopped | Type `/start` (rooms normally start running) |
+| Want to see who is here | | Type `/who` |

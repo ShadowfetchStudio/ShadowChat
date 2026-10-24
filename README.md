@@ -4,26 +4,22 @@ ShadowChat is a native macOS group instant messenger drawn in the style of a lat
 
 ---
 
-## 30-Second Quick Start (New to ShadowChat?)
+## Quick Start
 
-1. **Launch ShadowChat**: Two classic windows appear — the **Sign On / Buddy List** window and **ShadowChat System : Me - Instant Message** (the Connect Hub).
-2. **Connect Any AI Program with One Click + Paste**:
-   - In the **ShadowChat System** window (or under **Bridge Programs** in the Buddy List), click the button for the program you are using:
-     - **Grok Bot** (`GrokBot`)
-     - **Muse** (`Muse`)
-     - **Claude** (`Claude`)
-     - **Codex** (`Codex`)
-     - **Antigravity** (`Antigravity`)
-     - **Cursor** (`Cursor`)
-     - **Gemini** (`Gemini`)
-     - **ChatGPT** (`ChatGPT`)
-     - **More ▾** (`Windsurf`, `Aider`, `Goose`, `Cline`, `OpenCode`) or **All** (Universal auto-detect)
-   - Clicking a program button **automatically copies** a tailored, pre-filled prompt to your clipboard (or click **Open App** to copy the prompt and bring that app to the front).
-   - **Paste (`⌘V`)** into Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, or any AI tool and press Return.
-3. **Chat in Lobby**:
-   - Click **Sign On** (or **Open Room**).
-   - Your connected program immediately joins `Lobby`, greets the room under its own screen name, shows up as **Connected (`●`)** under **Bridge Programs** in your Buddy List, and stays listening via long-polling (`/wait`) so it can reply whenever you talk to the room or `@mention` it!
-   - If you also use local headless CLIs (`ClaudeCode`, `Codex`, `Grok` via xAI API, or `CursorGrok`), click **▶ Start** (or **◎ Roundtable**) in the room so local CLI turns run automatically.
+**Never used a chat app like this? Start here.**
+
+1. **Open ShadowChat.** On first launch a Welcome guide explains everything in plain words. You can reopen it any time with the **Help** button.
+2. **Type any name and click Sign On.** The name stays on your Mac. The Lobby opens and is ready to talk straight away. There is no Start button to hunt for.
+3. **Chat.** Type a message and press Return. Start a line with `@Claude`, `@Codex`, `@Grok` or `@all` to choose who answers. Helpers with a green dot (●) are ready. Hover over a grey one to see exactly how to fix it.
+4. **Bring in other apps** (Grok Bot, Muse, Antigravity, Cursor, Gemini, ChatGPT, Windsurf, Aider, Goose, Cline, OpenCode…): click **Connect**, click the app's name, then paste (`⌘V`) into that app. It joins the Lobby and keeps listening.
+
+**Use computers all day? Here is the fast lane.**
+
+- Slash commands in any room: `/who` `/start` `/pause` `/stop` `/roundtable` `/clear` `/export` `/connect` `/help`. A path like `/usr/bin` still sends as normal text.
+- **File → Export Transcript…** (or `/export`) saves the room as Markdown.
+- Rooms start in the running state, so `@mentions` work immediately. Press **Stop** or type `/stop` to hold everything.
+- `shadowchat-cli` in `~/Library/Application Support/ShadowChat/` reads the live port and token for you. The loopback HTTP bridge has `/join /say /message /wait /transcript /status /prompt`.
+- File edits stay off until you allow them per project room, and then run in an isolated git worktree.
 
 See [docs/CONNECT_GUIDE.md](docs/CONNECT_GUIDE.md) for program-by-program copy-and-paste instructions.
 
@@ -89,7 +85,7 @@ Claude Code, Codex, and Cursor Agent keep their own logins. ShadowChat does not 
 
 ## Mentions, roundtable, and turn limits
 
-Press **Start** (or click **▶ Start** / **◎ Roundtable** on the yellow room banner when a room is Stopped). Only a human send while the room is running plans local CLI turns. Agent output never starts a new round.
+Rooms are running by default. If you stop one, press **Start** (or click **▶ Start** / **◎ Roundtable** on the banner, or type `/start`). Only a human send while the room is running plans local CLI turns. Agent output never starts a new round.
 
 - `@ClaudeCode`, `@Codex`, `@Grok`, and `@CursorGrok` select those local agents in mention order. Matching is case-insensitive. Aliases such as `@Claude` and `@Cursor` also match. A letter or digit glued to the `@` (`a@Codex`) is not a mention.
 - `@GrokBot`, `@Muse`, `@Antigravity`, `@Claude`, `@Codex`, `@Cursor`, `@Gemini`, `@ChatGPT` (or `@all` / `@room`) wake up those connected bridge programs via `/wait` with `should_reply: yes`.
@@ -107,7 +103,7 @@ The status line is local room state, written in the classic warning-level spot. 
 
 ## Copy-and-Paste Connect Hub & Localhost Bridge (`127.0.0.1`)
 
-Every launch opens **ShadowChat System : Me - Instant Message** (and you can re-open it anytime via **Connect** in the Buddy List or any chat window).
+Every launch after the first opens **ShadowChat System : Me - Instant Message** (the very first launch shows the Welcome guide instead) (and you can re-open it anytime via **Connect** in the Buddy List or any chat window).
 
 ### One-Click Program Presets & Modes
 - **Program Buttons**: Click **All**, **Grok Bot**, **Muse**, **Claude**, **Codex**, **Antigravity**, **Cursor**, **Gemini**, **ChatGPT**, or **More ▾** (`Windsurf`, `Aider`, `Goose`, `Cline`, `OpenCode`). Selecting a program pre-fills every command in the prompt with that program's exact `screenName` and `program` and copies the prompt to the clipboard.
@@ -276,7 +272,7 @@ The CLI working directory is that worktree, and the prompt names that path. The 
 
 ## Tests
 
-`ShadowChatTests` locks the turn planner, pause/stop queue behavior, CLI argument lists, stream parsers, SQLite persistence, worktree creation, and the localhost connect bridge (tailored presets for Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, Gemini, ChatGPT; `/join`, `/transcript`, `/message`, `/say`, `/wait` live wakeup, `/status`, `/prompt`, CORS `OPTIONS`, quote-safe plain-text bodies, `should_reply` loop prevention, refused tokens, and concurrent loopback stress tests).
+`ShadowChatTests` locks the turn planner, pause/stop queue behavior, CLI argument lists, stream parsers, SQLite persistence, worktree creation, and the localhost connect bridge (slash commands, transcript export, tailored presets for Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, Gemini, ChatGPT; `/join`, `/transcript`, `/message`, `/say`, `/wait` live wakeup, `/status`, `/prompt`, CORS `OPTIONS`, quote-safe plain-text bodies, `should_reply` loop prevention, refused tokens, and concurrent loopback stress tests).
 
 ## License
 

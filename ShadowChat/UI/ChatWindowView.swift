@@ -61,6 +61,9 @@ struct ChatWindowView: View {
                 ClassicMenuButton(title: "File", items: [
                     ("New Room…", "n", chooseProject),
                     ("Copy Connect Prompt", "k", { copyForPreset(model.selectedConnectPreset) }),
+                    ("Export Transcript…", "e", { model.exportTranscript(roomID: roomID) }),
+                    ("Commands (/help)", "", { model.runCommand(.help, roomID: roomID) }),
+                    ("Who Is Here (/who)", "", { model.runCommand(.who, roomID: roomID) }),
                     ("Clear Room History", "", { model.clearRoomMessages(roomID: roomID) }),
                     ("Close", "w", { NSApp.keyWindow?.performClose(nil) })
                 ])
@@ -96,7 +99,7 @@ struct ChatWindowView: View {
 
     private var stoppedBanner: some View {
         HStack(spacing: 6) {
-            Text("Room is Stopped — press Start for local CLI turns, or Copy Prompt to paste into Grok Bot, Muse, Claude, Codex, Antigravity.")
+            Text("Room is Stopped — press Start to let helpers answer, or Copy Prompt to bring in another app.")
                 .font(AIMTheme.font(size: 10))
                 .foregroundStyle(.black)
                 .lineLimit(2)

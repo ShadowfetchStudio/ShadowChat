@@ -30,7 +30,8 @@ struct BuddyListView: View {
         .overlay(WindowConfigurator(title: "ShadowChat").frame(width: 0, height: 0))
         .frame(minWidth: 310, minHeight: 560)
         .preferredColorScheme(.light)
-        .onAppear { openWindow(id: "connect") }
+        .onAppear { if !model.showingWelcome { openWindow(id: "connect") } }
+        .onChange(of: model.connectRequest) { _, _ in openWindow(id: "connect") }
         .onChange(of: model.openRequest) { _, request in
             guard let request else { return }
             openWindow(id: "im", value: request.id)
@@ -42,6 +43,10 @@ struct BuddyListView: View {
         }
         .sheet(isPresented: $model.showingKeySheet) {
             SetupSheet()
+                .environmentObject(model)
+        }
+        .sheet(isPresented: $model.showingWelcome) {
+            WelcomeSheet()
                 .environmentObject(model)
         }
     }
@@ -103,7 +108,7 @@ struct BuddyListView: View {
 
             HStack(alignment: .bottom, spacing: 6) {
                 CaptionTool(title: "Help") {
-                    model.alert = "Quick Start:\n1. Click Sign On to open Lobby.\n2. To connect Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, or Gemini, click Connect (or a program in Bridge Programs) to copy its prompt and paste (⌘V) into that program.\n3. In a room, press Start (or Roundtable) so @mentions trigger local CLI turns."
+                    model.showingWelcome = true
                 } icon: {
                     Text("?")
                         .font(AIMTheme.font(size: 16, bold: true))
@@ -259,6 +264,11 @@ struct BuddyListView: View {
             CaptionTool(title: "Setup", action: { model.showingKeySheet = true }) {
                 Text("⚒")
                     .font(AIMTheme.font(size: 13))
+                    .foregroundStyle(.black)
+            }
+            CaptionTool(title: "Help", action: { model.showingWelcome = true }) {
+                Text("?")
+                    .font(AIMTheme.font(size: 15, bold: true))
                     .foregroundStyle(.black)
             }
             CaptionTool(title: "Project", action: chooseProject) {

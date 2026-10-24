@@ -587,7 +587,7 @@ enum BridgeAction: Equatable {
 enum BridgeNames {
     private static let builtInSet: Set<String> = [
         "codex", "claude", "claudecode", "antigravity", "cursor", "cursorgrok",
-        "grok", "grokbot", "muse", "gemini", "chatgpt", "windsurf", "aider",
+        "grok", "grokbot", "muse", "gemini", "chatgpt", "shadowchat", "windsurf", "aider",
         "goose", "cline", "opencode", "warp", "zed", "copilot", "deepseek", "perplexity"
     ]
 

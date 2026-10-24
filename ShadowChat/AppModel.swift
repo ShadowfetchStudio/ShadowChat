@@ -28,6 +28,8 @@ final class AppModel: ObservableObject {
     @Published var selectedConnectRoom: String = "Lobby"
     @Published var selectedConnectMode: ConnectPromptMode = .full
     @Published var connectBannerText: String = ""
+    @Published var showingWelcome = false
+    @Published var connectRequest = UUID()
     let version: String
 
     let database: Database
@@ -75,8 +77,12 @@ final class AppModel: ObservableObject {
             engines[room.id] = engine
         }
         keySaved = KeychainStore.hasKey
+        showingWelcome = !UserDefaults.standard.bool(forKey: "ShadowChat.welcomed")
         for room in rooms where room.runState == .running {
             ensureLoop(room.id)
+        }
+        if let lobby = rooms.first(where: { $0.kind == .lobby }), (messages[lobby.id] ?? []).isEmpty {
+            postNotice(roomID: lobby.id, text: "Welcome to ShadowChat! Type a message below and press Return. Use @name to talk to one helper, or @all for everyone. Type /help any time.")
         }
         startConnectBridge()
         refreshPresence()
@@ -92,7 +98,102 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.set(name, forKey: "ShadowChat.screenName")
         signedOn = true
         refreshPresence()
+        if let lobby = rooms.first(where: { $0.kind == .lobby }) {
+            armRoom(lobby.id)
+        }
         openLobby()
+    }
+
+    func dismissWelcome() {
+        UserDefaults.standard.set(true, forKey: "ShadowChat.welcomed")
+        showingWelcome = false
+    }
+
+    /// Rooms are ready to talk by default so a newcomer never has to find a Start button.
+    /// This only opens the room. It never replays an older message.
+    func armRoom(_ roomID: String) {
+        guard var room = room(roomID) else { return }
+        var engine = engines[roomID] ?? TurnEngine(phase: room.runState)
+        guard engine.phase != .running else { return }
+        engine.start()
+        engines[roomID] = engine
+        room.runState = .running
+        save(room)
+        ensureLoop(roomID)
+        signal(for: roomID).notify()
+    }
+
+    func postNotice(roomID: String, text: String) {
+        let notice = ChatMessage(
+            id: UUID().uuidString,
+            roomID: roomID,
+            sender: .me,
+            senderName: "ShadowChat",
+            body: text,
+            rtf: nil,
+            status: .complete,
+            createdAt: Date()
+        )
+        try? database.insertMessage(notice)
+        append(notice)
+    }
+
+    func runCommand(_ command: SlashCommand, roomID: String) {
+        switch command {
+        case .help:
+            postNotice(roomID: roomID, text: SlashCommand.helpText)
+        case .who:
+            var lines = buddies.map { buddy -> String in
+                let state = !buddy.enabled ? "turned off" : (buddy.online ? "ready" : "not ready — \(buddy.reason)")
+                return "• \(buddy.id.screenName): \(state)"
+            }
+            if joinedGuests.isEmpty {
+                lines.append("• No outside apps connected yet. Click Connect to add one.")
+            } else {
+                lines.append("• Connected apps: \(joinedGuests.joined(separator: ", "))")
+            }
+            postNotice(roomID: roomID, text: "Who is here\n" + lines.joined(separator: "\n"))
+        case .clear:
+            clearRoomMessages(roomID: roomID)
+            armRoom(roomID)
+            postNotice(roomID: roomID, text: "Room cleared.")
+        case .start:
+            start(roomID: roomID)
+            postNotice(roomID: roomID, text: "Room is running.")
+        case .pause:
+            pause(roomID: roomID)
+            postNotice(roomID: roomID, text: "Paused. Type /start to continue.")
+        case .stop:
+            stop(roomID: roomID)
+            postNotice(roomID: roomID, text: "Stopped. Type /start to continue.")
+        case .roundtable:
+            let on = !(room(roomID)?.roundtable ?? false)
+            setRoundtable(roomID: roomID, on: on)
+            postNotice(roomID: roomID, text: on ? "Roundtable on: everyone answers every message." : "Roundtable off: only people you @mention answer.")
+        case .connect:
+            connectRequest = UUID()
+            postNotice(roomID: roomID, text: "Opened Connect. Click an app's name, then paste (⌘V) into that app.")
+        case .export:
+            exportTranscript(roomID: roomID)
+        case .unknown(let word):
+            postNotice(roomID: roomID, text: "I don't know /\(word). Type /help to see what works.")
+        }
+    }
+
+    func exportTranscript(roomID: String) {
+        guard let room = room(roomID) else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = TranscriptExport.suggestedFileName(roomName: room.name)
+        panel.canCreateDirectories = true
+        panel.message = "Save this room as a readable Markdown file."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let text = TranscriptExport.markdown(roomName: room.name, messages: messages[roomID] ?? [])
+        do {
+            try text.write(to: url, atomically: true, encoding: .utf8)
+            postNotice(roomID: roomID, text: "Saved transcript to \(url.lastPathComponent).")
+        } catch {
+            alert = "Could not save the transcript. \(error.localizedDescription)"
+        }
     }
 
     func openLobby() {
@@ -143,6 +244,10 @@ final class AppModel: ObservableObject {
     func sendHuman(roomID: String, plain: String, rtf: Data?) {
         let text = plain.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, room(roomID) != nil else { return }
+        if let command = SlashCommand.parse(text) {
+            runCommand(command, roomID: roomID)
+            return
+        }
         let name = screenName.trimmingCharacters(in: .whitespacesAndNewlines)
         let message = ChatMessage(
             id: UUID().uuidString,
@@ -322,6 +427,7 @@ final class AppModel: ObservableObject {
         rooms.append(room)
         messages[room.id] = []
         engines[room.id] = TurnEngine()
+        armRoom(room.id)
         requestOpen(room.id)
     }
 
@@ -352,6 +458,7 @@ final class AppModel: ObservableObject {
         rooms.append(room)
         messages[room.id] = []
         engines[room.id] = TurnEngine()
+        armRoom(room.id)
         requestOpen(room.id)
     }
 
