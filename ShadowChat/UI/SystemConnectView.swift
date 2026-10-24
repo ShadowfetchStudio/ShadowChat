@@ -5,6 +5,7 @@ struct SystemConnectView: View {
     @EnvironmentObject private var model: AppModel
     @State private var copied = false
     @State private var copiedOneLine = false
+    @State private var copiedHandoff = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,7 +25,7 @@ struct SystemConnectView: View {
         .background(AIMTheme.frameBlue)
         .ignoresSafeArea()
         .overlay(WindowConfigurator(title: windowTitle).frame(width: 0, height: 0))
-        .frame(minWidth: 660, minHeight: 520)
+        .frame(minWidth: 680, minHeight: 530)
         .preferredColorScheme(.light)
     }
 
@@ -37,11 +38,12 @@ struct SystemConnectView: View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
                 ClassicMenuButton(title: "File", items: [
-                    ("Open Lobby", "l", openTargetRoom),
+                    ("Open Target Room", "l", openTargetRoom),
                     ("Close", "w", { NSApp.keyWindow?.performClose(nil) })
                 ])
                 ClassicMenuButton(title: "Edit", items: [
                     ("Copy Prompt", "c", copyPrompt),
+                    ("Copy Context Handoff Packet", "h", copyHandoff),
                     ("Copy 1-Line Command", "1", copyOneLiner),
                     ("Select All", "a", { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) })
                 ])
@@ -68,13 +70,15 @@ struct SystemConnectView: View {
                     .font(AIMTheme.font(size: 10, bold: true))
                     .foregroundStyle(.black)
                 ForEach(ConnectPreset.featured) { preset in
-                    Button(preset.buttonTitle) {
+                    let isOnline = preset != .universal && model.isGuestConnected(preset.screenName)
+                    Button((isOnline ? "● " : "") + preset.buttonTitle) {
                         selectPreset(preset)
                     }
                     .buttonStyle(AIMButtonStyle(sunken: model.selectedConnectPreset == preset))
                 }
                 ClassicMenuButton(title: "More ▾", items: ConnectPreset.additional.map { preset in
-                    (preset.displayName, "", { selectPreset(preset) })
+                    let isOnline = model.isGuestConnected(preset.screenName)
+                    return ((isOnline ? "● " : "") + preset.displayName, "", { selectPreset(preset) })
                 })
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
@@ -82,7 +86,7 @@ struct SystemConnectView: View {
                 .overlay(BevelOverlay(raised: !ConnectPreset.additional.contains(model.selectedConnectPreset)))
                 Spacer(minLength: 4)
             }
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 Text("Target Room:")
                     .font(AIMTheme.font(size: 10, bold: true))
                     .foregroundStyle(.black)
@@ -99,6 +103,7 @@ struct SystemConnectView: View {
                         model.selectConnectMode(mode, copyToClipboard: true)
                         copied = true
                         copiedOneLine = false
+                        copiedHandoff = false
                     }
                     .buttonStyle(AIMButtonStyle(sunken: model.selectedConnectMode == mode))
                 }
@@ -156,6 +161,12 @@ struct SystemConnectView: View {
                     .font(AIMTheme.font(size: 14, bold: true))
                     .foregroundStyle(.black)
             }
+            CaptionTool(title: copiedHandoff ? "Copied!" : "Handoff", sunken: copiedHandoff, action: copyHandoff) {
+                Text("⇄")
+                    .font(AIMTheme.font(size: 14, bold: true))
+                    .foregroundStyle(.black)
+            }
+            .help("Copy recent room transcript + live Connect Prompt to hand off context to another AI app")
             CaptionTool(title: copiedOneLine ? "Copied 1L" : "1-Line", sunken: copiedOneLine, action: copyOneLiner) {
                 Text("⌘")
                     .font(AIMTheme.font(size: 13, bold: true))
@@ -166,6 +177,7 @@ struct SystemConnectView: View {
                     model.copyAndOpenApp(for: model.selectedConnectPreset, roomName: model.selectedConnectRoom)
                     copied = true
                     copiedOneLine = false
+                    copiedHandoff = false
                 }) {
                     Text("↗")
                         .font(AIMTheme.font(size: 14, bold: true))
@@ -173,7 +185,7 @@ struct SystemConnectView: View {
                 }
                 .help("Copy prompt and open \(appURL.deletingPathExtension().lastPathComponent)")
             }
-            Text("Works with Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, Gemini, ChatGPT, Windsurf, Aider, Goose, Cline, OpenCode & more.")
+            Text("Works with Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, Gemini, ChatGPT, Windsurf, Aider, Goose, Cline, OpenCode, Warp, Zed & more.")
                 .font(AIMTheme.font(size: 10))
                 .foregroundStyle(.black)
                 .lineLimit(2)
@@ -211,9 +223,23 @@ struct SystemConnectView: View {
     }
 
     private var programMenuItems: [(title: String, key: String, action: () -> Void)] {
-        ConnectPreset.allCases.map { preset in
-            (preset.displayName, "", { selectPreset(preset) })
+        var items: [(title: String, key: String, action: () -> Void)] = ConnectPreset.allCases.map { preset in
+            let connected = preset != .universal && model.isGuestConnected(preset.screenName)
+            let prefix = connected ? "● " : ""
+            return (prefix + preset.displayName, "", { selectPreset(preset) })
         }
+        let installed = ConnectPreset.installedPresets()
+        if !installed.isEmpty {
+            for preset in installed {
+                items.append(("Copy & Open \(preset.displayName) ↗", "", {
+                    model.copyAndOpenApp(for: preset, roomName: model.selectedConnectRoom)
+                    copied = true
+                    copiedOneLine = false
+                    copiedHandoff = false
+                }))
+            }
+        }
+        return items
     }
 
     private var roomMenuItems: [(title: String, key: String, action: () -> Void)] {
@@ -224,6 +250,7 @@ struct SystemConnectView: View {
                 model.selectConnectRoom(name, copyToClipboard: true)
                 copied = true
                 copiedOneLine = false
+                copiedHandoff = false
             })
         }
     }
@@ -234,6 +261,7 @@ struct SystemConnectView: View {
                 model.selectConnectMode(mode, copyToClipboard: true)
                 copied = true
                 copiedOneLine = false
+                copiedHandoff = false
             })
         }
     }
@@ -257,11 +285,20 @@ struct SystemConnectView: View {
         _ = model.selectConnectPreset(preset, copyToClipboard: true)
         copied = true
         copiedOneLine = false
+        copiedHandoff = false
     }
 
     private func copyPrompt() {
         _ = model.selectConnectPreset(model.selectedConnectPreset, copyToClipboard: true)
         copied = true
+        copiedOneLine = false
+        copiedHandoff = false
+    }
+
+    private func copyHandoff() {
+        _ = model.copyHandoffPacket(preset: model.selectedConnectPreset)
+        copiedHandoff = true
+        copied = false
         copiedOneLine = false
     }
 
@@ -269,6 +306,7 @@ struct SystemConnectView: View {
         _ = model.copyOneLiner()
         copiedOneLine = true
         copied = false
+        copiedHandoff = false
     }
 
     private func openTargetRoom() {

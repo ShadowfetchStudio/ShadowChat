@@ -5,11 +5,17 @@ final class SlashCommandTests: XCTestCase {
     func testParsesKnownCommandsAndAliases() {
         XCTAssertEqual(SlashCommand.parse("/help"), .help)
         XCTAssertEqual(SlashCommand.parse("  /HELP  "), .help)
+        XCTAssertEqual(SlashCommand.parse("/?"), .help)
         XCTAssertEqual(SlashCommand.parse("/who"), .who)
+        XCTAssertEqual(SlashCommand.parse("/apps"), .apps)
+        XCTAssertEqual(SlashCommand.parse("/programs"), .apps)
         XCTAssertEqual(SlashCommand.parse("/go"), .start)
         XCTAssertEqual(SlashCommand.parse("/stop now"), .stop)
         XCTAssertEqual(SlashCommand.parse("/round"), .roundtable)
         XCTAssertEqual(SlashCommand.parse("/save"), .export)
+        XCTAssertEqual(SlashCommand.parse("/compare SQLite vs CoreData"), .compare("SQLite vs CoreData"))
+        XCTAssertEqual(SlashCommand.parse("/review concurrency safety"), .review("concurrency safety"))
+        XCTAssertEqual(SlashCommand.parse("/handoff Antigravity finish parser"), .handoff("Antigravity finish parser"))
     }
 
     func testPathsAndOrdinaryTextAreNotCommands() {

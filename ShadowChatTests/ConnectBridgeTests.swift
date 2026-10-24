@@ -351,5 +351,49 @@ final class ConnectBridgeTests: XCTestCase {
         let (promptData, promptResp) = try await session.data(from: promptURL)
         XCTAssertEqual((promptResp as? HTTPURLResponse)?.statusCode, 200)
         XCTAssertTrue(String(decoding: promptData, as: UTF8.self).contains("\"screenName\":\"Muse\""))
+
+        // 5. Verify /handoff?program=Antigravity and /transcript?format=json
+        let handoffURL = URL(string: "http://127.0.0.1:\(port)/handoff?token=\(token)&program=Antigravity&room=Lobby&note=check%20status")!
+        let (handoffData, handoffResp) = try await session.data(from: handoffURL)
+        XCTAssertEqual((handoffResp as? HTTPURLResponse)?.statusCode, 200)
+        let handoffText = String(decoding: handoffData, as: UTF8.self)
+        XCTAssertTrue(handoffText.contains("SHADOWCHAT MULTI-PROGRAM CONTEXT HANDOFF"), handoffText)
+        XCTAssertTrue(handoffText.contains("Antigravity"), handoffText)
+        XCTAssertTrue(handoffText.contains("@GrokBot what is the status?"), handoffText)
+
+        let jsonTranscriptURL = URL(string: "http://127.0.0.1:\(port)/transcript?token=\(token)&room=Lobby&format=json")!
+        let (jsonData, jsonResp) = try await session.data(from: jsonTranscriptURL)
+        XCTAssertEqual((jsonResp as? HTTPURLResponse)?.statusCode, 200)
+        let jsonText = String(decoding: jsonData, as: UTF8.self)
+        XCTAssertTrue(jsonText.contains("\"room\":\"Lobby\""), jsonText)
+        XCTAssertTrue(jsonText.contains("GrokBot"), jsonText)
+    }
+
+    func testCliLoopModeAndRoleGroupMentionsOnBridge() {
+        let endpoint = BridgeEndpoint(host: "127.0.0.1", port: 54321, token: "tok-cli")
+        let cliText = ConnectPrompt.render(endpoint: endpoint, occupantNames: ["Me"], preset: .antigravity, roomName: "Lobby", mode: .cliLoop)
+        XCTAssertTrue(cliText.contains("shadowchat-cli\" connect \"Antigravity\""))
+        XCTAssertTrue(cliText.contains("shadowchat-cli\" listen \"Antigravity\" \"Lobby\" 300"))
+
+        let now = Date()
+        let joined = ["GrokBot", "Muse", "Antigravity", "Cursor"]
+        let codersMsg = ChatMessage(id: "c1", roomID: "r", sender: .me, senderName: "Me", body: "@coders inspect this", rtf: nil, status: .complete, createdAt: now)
+        XCTAssertTrue(BridgeTurnPolicy.shouldReply(screenName: "Antigravity", messages: [codersMsg], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertTrue(BridgeTurnPolicy.shouldReply(screenName: "Cursor", messages: [codersMsg], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertFalse(BridgeTurnPolicy.shouldReply(screenName: "Muse", messages: [codersMsg], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertFalse(BridgeTurnPolicy.shouldReply(screenName: "GrokBot", messages: [codersMsg], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+
+        let thinkersMsg = ChatMessage(id: "t1", roomID: "r", sender: .me, senderName: "Me", body: "@thinkers brainstorm ideas", rtf: nil, status: .complete, createdAt: now)
+        XCTAssertTrue(BridgeTurnPolicy.shouldReply(screenName: "Muse", messages: [thinkersMsg], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertTrue(BridgeTurnPolicy.shouldReply(screenName: "GrokBot", messages: [thinkersMsg], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertFalse(BridgeTurnPolicy.shouldReply(screenName: "Antigravity", messages: [thinkersMsg], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+
+        let localOnlyMsg = ChatMessage(id: "l1", roomID: "r", sender: .me, senderName: "Me", body: "@local run local clis only", rtf: nil, status: .complete, createdAt: now)
+        XCTAssertFalse(BridgeTurnPolicy.shouldReply(screenName: "Muse", messages: [localOnlyMsg], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertFalse(BridgeTurnPolicy.shouldReply(screenName: "Antigravity", messages: [localOnlyMsg], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+
+        let bridgeOnlyMsg = ChatMessage(id: "b1", roomID: "r", sender: .me, senderName: "Me", body: "@bridge everyone on the bridge answer", rtf: nil, status: .complete, createdAt: now)
+        XCTAssertTrue(BridgeTurnPolicy.shouldReply(screenName: "Muse", messages: [bridgeOnlyMsg], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
+        XCTAssertTrue(BridgeTurnPolicy.shouldReply(screenName: "Antigravity", messages: [bridgeOnlyMsg], after: nil, humanScreenName: "Me", joinedGuests: joined, turnLimit: 4))
     }
 }

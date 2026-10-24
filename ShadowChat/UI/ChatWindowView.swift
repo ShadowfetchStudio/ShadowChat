@@ -61,7 +61,13 @@ struct ChatWindowView: View {
                 ClassicMenuButton(title: "File", items: [
                     ("New Room…", "n", chooseProject),
                     ("Copy Connect Prompt", "k", { copyForPreset(model.selectedConnectPreset) }),
+                    ("Copy Context Handoff Packet (/handoff)", "h", {
+                        _ = model.copyHandoffPacket(roomID: roomID)
+                        copiedLabel = "Copied Handoff Packet"
+                    }),
                     ("Export Transcript…", "e", { model.exportTranscript(roomID: roomID) }),
+                    ("Multi-Program Status (/apps)", "", { model.runCommand(.apps, roomID: roomID) }),
+                    ("Multi-AI Review (/review)", "", { model.runCommand(.review(""), roomID: roomID) }),
                     ("Commands (/help)", "", { model.runCommand(.help, roomID: roomID) }),
                     ("Who Is Here (/who)", "", { model.runCommand(.who, roomID: roomID) }),
                     ("Clear Room History", "", { model.clearRoomMessages(roomID: roomID) }),
@@ -162,7 +168,7 @@ struct ChatWindowView: View {
                 .buttonStyle(AIMButtonStyle())
             Button(":)") { compose.insert(":) ") }
                 .buttonStyle(AIMButtonStyle())
-            ForEach(["@all", "@GrokBot", "@Muse", "@Antigravity", "@Claude", "@Codex", "@Grok"], id: \.self) { tag in
+            ForEach(["@all", "@coders", "@thinkers", "@bridge", "@GrokBot", "@Muse", "@Antigravity", "@Claude", "@Codex", "@Grok"], id: \.self) { tag in
                 Button(tag) { compose.insert(tag + " ") }
                     .buttonStyle(AIMButtonStyle())
             }
@@ -255,12 +261,26 @@ struct ChatWindowView: View {
     }
 
     private var connectMenuItems: [(title: String, key: String, action: () -> Void)] {
+        let targetRoom = room?.name ?? "Lobby"
         var items: [(title: String, key: String, action: () -> Void)] = [
             ("Open Connect Window…", "", {
-                model.selectConnectRoom(room?.name ?? "Lobby", copyToClipboard: false)
+                model.selectConnectRoom(targetRoom, copyToClipboard: false)
                 openWindow(id: "connect")
+            }),
+            ("Copy Context Handoff Packet (/handoff)", "", {
+                _ = model.copyHandoffPacket(roomID: roomID)
+                copiedLabel = "Copied Handoff Packet"
+            }),
+            ("Multi-Program Status (/apps)", "", {
+                model.runCommand(.apps, roomID: roomID)
             })
         ]
+        for preset in ConnectPreset.installedPresets() {
+            items.append(("Copy & Open \(preset.displayName) ↗", "", {
+                model.copyAndOpenApp(for: preset, roomName: targetRoom)
+                copiedLabel = "Opened \(preset.buttonTitle)"
+            }))
+        }
         for preset in ConnectPreset.featured {
             items.append(("Copy Prompt for \(preset.displayName)", "", {
                 copyForPreset(preset)
@@ -277,6 +297,10 @@ struct ChatWindowView: View {
     private var mentionItems: [(title: String, key: String, action: () -> Void)] {
         var tags = [
             "@all",
+            "@coders",
+            "@thinkers",
+            "@bridge",
+            "@local",
             "@room",
             "@GrokBot",
             "@Muse",

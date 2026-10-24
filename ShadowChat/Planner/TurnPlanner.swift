@@ -2,6 +2,7 @@ import Foundation
 
 enum MentionTarget: Equatable {
     case everyone
+    case group([ParticipantID])
     case agent(ParticipantID)
 }
 
@@ -77,6 +78,8 @@ enum TurnPlanner {
             switch target(for: token) {
             case .everyone:
                 everyone = true
+            case .group(let ids):
+                agents.append(contentsOf: ids)
             case .agent(let id):
                 agents.append(id)
             case nil:
@@ -88,8 +91,14 @@ enum TurnPlanner {
 
     static func target(for token: String) -> MentionTarget? {
         switch token.lowercased() {
-        case "all", "room":
+        case "all", "room", "everyone", "local", "cli":
             return .everyone
+        case "coders", "builders", "devs":
+            return .group([.claudeCode, .codex, .cursorGrok])
+        case "thinkers", "research", "brainstorm":
+            return .group([.grok])
+        case "bridge", "guests", "apps":
+            return .agent(.me)
         case "claude", "claudecode", "claude-code":
             return .agent(.claudeCode)
         case "codex":

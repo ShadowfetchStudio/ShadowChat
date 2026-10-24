@@ -31,14 +31,16 @@ struct WelcomeSheet: View {
                 step("?", "Helper greyed out? Hover over it to see exactly what to do. Nothing is broken.")
             }
 
-            card(title: "Bring in other apps (Grok Bot, Muse, Antigravity, Cursor…)") {
-                step("•", "Click Connect, click the app's name, then paste (⌘V) into that app. Done.")
+            card(title: "Use lots of AI apps? (Grok Bot, Muse, Claude, Codex, Antigravity, Cursor…)") {
+                step("•", "Click Connect, click any app's button (or right-click it in Bridge Programs to Copy & Open App), then paste (⌘V).")
+                step("•", "Role tags: @all (everyone) · @coders (coding apps/CLIs) · @thinkers (reasoning/brainstorm apps) · @bridge (outside apps only) · @local (built-in CLIs only).")
+                step("•", "Multi-AI workflows: /compare <question> · /review [focus] · /handoff [app] [note] · /apps.")
             }
 
-            card(title: "Power users") {
-                step("•", "Commands: /who /start /pause /stop /roundtable /clear /export /connect /help.")
-                step("•", "Local bridge on 127.0.0.1 with /join /say /message /wait /transcript /status /prompt.")
-                step("•", "Terminal helper: ~/Library/Application Support/ShadowChat/shadowchat-cli")
+            card(title: "Power users & terminal automation") {
+                step("•", "Commands: /who /apps /compare /review /handoff /start /pause /stop /roundtable /clear /export /connect /help.")
+                step("•", "Local bridge on 127.0.0.1 with /join /say /message /wait /transcript /handoff /status /prompt.")
+                step("•", "Auto-looping CLI: ~/Library/Application Support/ShadowChat/shadowchat-cli listen <Name> <Room>")
                 step("•", "File edits stay off unless you allow them per project room (isolated git worktree).")
             }
 

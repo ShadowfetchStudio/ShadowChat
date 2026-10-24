@@ -13,12 +13,23 @@ ShadowChat is a native macOS group instant messenger drawn in the style of a lat
 3. **Chat.** Type a message and press Return. Start a line with `@Claude`, `@Codex`, `@Grok` or `@all` to choose who answers. Helpers with a green dot (●) are ready. Hover over a grey one to see exactly how to fix it.
 4. **Bring in other apps** (Grok Bot, Muse, Antigravity, Cursor, Gemini, ChatGPT, Windsurf, Aider, Goose, Cline, OpenCode…): click **Connect**, click the app's name, then paste (`⌘V`) into that app. It joins the Lobby and keeps listening.
 
-**Use computers all day? Here is the fast lane.**
+**Use lots of different AI programs (or work in terminals all day)? Here is the fast lane.**
 
-- Slash commands in any room: `/who` `/start` `/pause` `/stop` `/roundtable` `/clear` `/export` `/connect` `/help`. A path like `/usr/bin` still sends as normal text.
+- **Multi-Program Role Mentions**:
+  - `@all` / `@room` — addresses every active local adapter and every connected bridge app.
+  - `@coders` (or `@builders`) — routes to coding agents (`ClaudeCode`, `Codex`, `CursorGrok` + connected `Antigravity`, `Cursor`, `Claude`, `Windsurf`, `Aider`, `Goose`, `Cline`, `OpenCode`, `Warp`, `Zed`, `Copilot`).
+  - `@thinkers` (or `@research` / `@brainstorm`) — routes to reasoning and creative programs (`Grok`, `GrokBot`, `Muse`, `Gemini`, `ChatGPT`, `Claude`, `DeepSeek`, `Perplexity`).
+  - `@bridge` (or `@apps`) — wakes connected external bridge programs only (no local CLI subprocesses spawned).
+  - `@local` (or `@cli`) — runs built-in local CLI/API adapters only (connected bridge apps stay quiet).
+- **Multi-AI Orchestration Slash Commands**:
+  - `/compare <question>` — asks `@all` to give their distinct perspective in 3–5 concise bullets.
+  - `/review [focus]` — runs a multi-program code/design review highlighting risks, improvements, and strengths.
+  - `/handoff [program] [note]` (or the **Handoff** button in the Connect window) — copies a complete **Context Handoff Packet** (recent room transcript + live Connect Prompt) to your clipboard so you can bring any new AI program into the conversation mid-stream.
+  - `/apps` (or `/programs`) — lists built-in adapters, connected bridge programs (with room & `/wait` listener status), and installed macOS AI apps found in `/Applications`.
+  - Plus `/who` `/start` `/pause` `/stop` `/roundtable` `/clear` `/export` `/connect` `/help` (paths like `/usr/bin` still send as normal text).
+- **4 Connect Prompt Formats**: **Full Live Agent**, **CLI / Auto-Loop** (`shadowchat-cli listen` loops up to 300s until `should_reply: yes` and survives restarts), **Quick 1-Liner**, and **Web / GET URLs**.
+- **Installed App Detection & 1-Click Launch**: Right-click any app under **Bridge Programs** (or use the **Connect** menu) to **Copy & Open `<App>.app`** in one click.
 - **File → Export Transcript…** (or `/export`) saves the room as Markdown.
-- Rooms start in the running state, so `@mentions` work immediately. Press **Stop** or type `/stop` to hold everything.
-- `shadowchat-cli` in `~/Library/Application Support/ShadowChat/` reads the live port and token for you. The loopback HTTP bridge has `/join /say /message /wait /transcript /status /prompt`.
 - File edits stay off until you allow them per project room, and then run in an isolated git worktree.
 
 See [docs/CONNECT_GUIDE.md](docs/CONNECT_GUIDE.md) for program-by-program copy-and-paste instructions.
@@ -106,17 +117,19 @@ The status line is local room state, written in the classic warning-level spot. 
 Every launch after the first opens **ShadowChat System : Me - Instant Message** (the very first launch shows the Welcome guide instead) (and you can re-open it anytime via **Connect** in the Buddy List or any chat window).
 
 ### One-Click Program Presets & Modes
-- **Program Buttons**: Click **All**, **Grok Bot**, **Muse**, **Claude**, **Codex**, **Antigravity**, **Cursor**, **Gemini**, **ChatGPT**, or **More ▾** (`Windsurf`, `Aider`, `Goose`, `Cline`, `OpenCode`). Selecting a program pre-fills every command in the prompt with that program's exact `screenName` and `program` and copies the prompt to the clipboard.
+- **Program Buttons**: Click **All**, **Grok Bot**, **Muse**, **Claude**, **Codex**, **Antigravity**, **Cursor**, **Gemini**, **ChatGPT**, or **More ▾** (`Windsurf`, `Aider`, `Goose`, `Cline`, `OpenCode`, `Warp`, `Zed`, `Copilot`, `DeepSeek`, `Perplexity`). Selecting a program pre-fills every command in the prompt with that program's exact `screenName` and `program` and copies the prompt to the clipboard. Connected programs show a live `●` indicator right on their preset button.
 - **Target Room Picker**: Choose `Lobby` or any Project room so the pasted agent joins that room directly.
-- **3 Prompt Formats**:
-  1. **Full Live Agent** — Includes a 1-step connect+hello+transcript command, individual JSON and quote-safe plain-text commands, a `GET /say` fallback, and the `/wait` live-listen loop.
-  2. **Quick 1-Liner** — Compact two-command prompt (`join + hello + transcript`, then `/wait`).
-  3. **Web / GET URLs** — Pure HTTP `GET` URLs (`/join`, `/say`, `/transcript`, `/wait`) for assistants that only have a URL-fetch / web-browse tool and no shell or `POST` tool.
+- **Context Handoff Button (`Handoff` / `/handoff`)**: Copies a complete **Multi-Program Context Handoff Packet** containing the recent room transcript + optional task note + the live Connect Prompt so any newly opened AI program immediately has full context of what your other AI programs discussed.
+- **4 Prompt Formats**:
+  1. **Full Live Agent** — Includes a 1-step connect+hello+transcript command, individual JSON and quote-safe plain-text commands, the `shadowchat-cli listen` auto-loop option, a `GET /say` fallback, and the `/wait` live-listen loop.
+  2. **CLI / Auto-Loop** — Uses `"$HOME/Library/Application Support/ShadowChat/shadowchat-cli"` (`connect` and `listen` up to 300s), which reads `bridge.json` dynamically on every poll and survives app restarts.
+  3. **Quick 1-Liner** — Compact two-command prompt (`join + hello + transcript`, then `/wait`).
+  4. **Web / GET URLs** — Pure HTTP `GET` URLs (`/join`, `/say`, `/transcript`, `/wait`) for assistants that only have a URL-fetch / web-browse tool and no shell or `POST` tool.
 
 ### Files Written on Launch (`~/Library/Application Support/ShadowChat/`)
 - `connect-prompt.txt` (`0600`) — The current universal connect prompt.
 - `bridge.json` (`0600`) — `{"host":"127.0.0.1","port":<port>,"token":"<token>"}`.
-- `shadowchat-cli` (`0700`) — A zero-dependency `/bin/sh` helper script that reads `bridge.json` dynamically (`shadowchat-cli join GrokBot`, `shadowchat-cli say GrokBot "Hello!" Lobby`, `shadowchat-cli wait GrokBot Lobby`).
+- `shadowchat-cli` (`0700`) — A zero-dependency `/bin/sh` helper script that reads `bridge.json` dynamically (`shadowchat-cli connect Antigravity Antigravity Lobby`, `shadowchat-cli listen Antigravity Lobby 300`, `shadowchat-cli say GrokBot "Hello!" Lobby`, `shadowchat-cli handoff Muse Lobby`).
 
 The token changes every launch. None of these files are in git, and the token is never stored in SQLite.
 
@@ -125,15 +138,15 @@ The bridge binds strictly to `127.0.0.1`, supports CORS (`OPTIONS` preflight + `
 
 - **`POST /join` or `GET /join`**
   - JSON `{"token","screenName","program"}` or query `?token=&screenName=&program=`
-  - Registers `GrokBot`, `Muse`, `Claude`, `Codex`, `Antigravity`, `Cursor`, `Gemini`, `ChatGPT`, `Windsurf`, `Aider`, `Goose`, `Cline`, `OpenCode`, or a custom screen name, and marks it **Connected** in the Buddy List.
-- **`GET /transcript?token=&room=Lobby`**
-  - Returns `room: <Name>`, `seq: <count>`, and the latest 40 lines for that room.
+  - Registers `GrokBot`, `Muse`, `Claude`, `Codex`, `Antigravity`, `Cursor`, `Gemini`, `ChatGPT`, `Windsurf`, `Aider`, `Goose`, `Cline`, `OpenCode`, `Warp`, `Zed`, `Copilot`, `DeepSeek`, `Perplexity`, or a custom screen name, and marks it **Connected** in the Buddy List.
+- **`GET /transcript?token=&room=Lobby[&format=json]`**
+  - Default `text/plain` returns `room: <Name>`, `seq: <count>`, and the latest 40 lines; `format=json` returns structured JSON with room state, connected guests, and message objects.
 - **`POST /message` (or `/say`) and `GET /say` (or `GET /message`)**
   - Accepts JSON `{"token","screenName","text","room"}`, quote-safe plain text body (`POST /message?token=&screenName=&room=Lobby --data-raw "Your reply"`), URL-encoded form fields, or pure `GET /say?token=&screenName=&room=Lobby&text=Hello`.
   - Appends the chat line under the caller's canonical screen name and wakes any `/wait` listeners in that room.
-- **`GET /wait?token=&room=Lobby&screenName=<Name>&after=<seq>&timeout=30`**
-  - Smart long-polling endpoint for multi-turn live chat.
-  - Holds the connection on a background worker queue (up to `timeout` seconds, max 90s) until a new message arrives in `room` that `screenName` should respond to, then returns immediately with:
+- **`GET /wait?token=&room=Lobby&screenName=<Name>&after=<seq>&timeout=45`**
+  - Smart long-polling endpoint for multi-turn live chat (up to `timeout` seconds, max 300s).
+  - Wakes immediately when a new message arrives in `room` that `screenName` should respond to (`@all`, `@<Name>`, `@coders`, `@thinkers`, `@bridge`, or unmentioned human messages):
     ```text
     room: Lobby
     seq: 4
@@ -141,7 +154,9 @@ The bridge binds strictly to `127.0.0.1`, supports CORS (`OPTIONS` preflight + `
     should_reply: yes
     Me: @GrokBot what do you think?
     ```
-  - Prevents agent-to-agent infinite loops: `should_reply` is `yes` when the human speaks to the room / `@all` / `@<Name>`, or when another participant explicitly `@mentions` `<Name>` within the room's turn limit.
+  - Prevents agent-to-agent infinite loops: `should_reply` is `yes` when the human speaks to the room / role group / `@<Name>`, or when another participant explicitly `@mentions` `<Name>` within the room's turn limit.
+- **`GET /handoff?token=&program=Antigravity&room=Lobby&note=`**
+  - Returns a complete Multi-Program Context Handoff Packet (recent room transcript + tailored Connect Prompt).
 - **`GET /status?token=` (or `GET /rooms?token=`)**
   - Returns JSON with active rooms, message sequence numbers, and connected bridge guests.
 - **`GET /prompt?token=&program=GrokBot&room=Lobby`**

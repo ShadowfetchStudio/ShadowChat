@@ -3,7 +3,19 @@ import Foundation
 /// Local chat commands typed into the compose box, for example `/help`.
 /// Commands never reach an agent and are never executed as shell.
 enum SlashCommand: Equatable {
-    case help, who, clear, start, pause, stop, roundtable, connect, export
+    case help
+    case who
+    case apps
+    case clear
+    case start
+    case pause
+    case stop
+    case roundtable
+    case connect
+    case export
+    case compare(String)
+    case review(String)
+    case handoff(String)
     case unknown(String)
 
     /// Returns nil for normal chat. A leading slash only counts as a command when the
@@ -12,13 +24,21 @@ enum SlashCommand: Equatable {
     static func parse(_ text: String) -> SlashCommand? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/"), trimmed.count > 1 else { return nil }
-        let parts = trimmed.dropFirst().split(whereSeparator: { $0.isWhitespace })
+        let body = trimmed.dropFirst()
+        let parts = body.split(whereSeparator: { $0.isWhitespace })
         guard let first = parts.first else { return nil }
         let word = String(first).lowercased()
-        guard word.allSatisfy({ $0.isLetter }) else { return nil }
+        guard word.allSatisfy({ $0.isLetter || $0 == "?" }) else { return nil }
+        let remainder: String
+        if let spaceIndex = body.firstIndex(where: { $0.isWhitespace }) {
+            remainder = body[spaceIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            remainder = ""
+        }
         switch word {
         case "help", "?", "commands": return .help
         case "who", "people", "online": return .who
+        case "apps", "programs", "bridge", "status": return .apps
         case "clear", "cls": return .clear
         case "start", "go": return .start
         case "pause": return .pause
@@ -26,6 +46,9 @@ enum SlashCommand: Equatable {
         case "roundtable", "round": return .roundtable
         case "connect", "join": return .connect
         case "export", "save": return .export
+        case "compare", "askall", "vs", "versus": return .compare(remainder)
+        case "review", "critique", "audit": return .review(remainder)
+        case "handoff", "packet", "context": return .handoff(remainder)
         default:
             return parts.count == 1 ? .unknown(word) : nil
         }
@@ -34,9 +57,10 @@ enum SlashCommand: Equatable {
     static let helpText = """
     ShadowChat quick help
     • Type a message and press Return to send. Shift-Return adds a new line.
-    • @name talks to one helper (for example @Claude or @Codex). @all talks to everyone.
-    • Green dots in the buddy list mean a helper is ready. Double-click one to chat privately.
-    • Commands: /who  /start  /pause  /stop  /roundtable  /clear  /connect  /export  /help
+    • @name talks to one helper (@GrokBot, @Muse, @Antigravity, @Claude, @Codex, @Grok, @Cursor).
+    • Multi-AI role tags: @all (everyone) · @coders (coding apps/CLIs) · @thinkers (reasoning/brainstorm apps) · @bridge (connected outside apps only) · @local (built-in adapters only).
+    • Multi-AI workflows: /compare <question> · /review [focus] · /handoff [app] [note] · /apps
+    • Room controls: /who · /start · /pause · /stop · /roundtable · /clear · /connect · /export · /help
     """
 }
 

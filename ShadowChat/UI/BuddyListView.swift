@@ -169,23 +169,50 @@ struct BuddyListView: View {
                 group("Bridge Programs") {
                     ForEach(ConnectPreset.bridgeRosterPresets) { preset in
                         let connected = model.isGuestConnected(preset.screenName)
+                        let installed = preset.installedAppURL() != nil
                         row(
                             title: (connected ? "● " : "◌ ") + preset.displayName,
-                            trailing: connected ? "Connected" : "Copy Prompt",
+                            trailing: connected ? "Connected" : (installed ? "Installed ↗" : "Copy Prompt"),
                             selected: selection == .guest(preset.screenName),
-                            online: connected,
+                            online: connected || installed,
                             help: connected
                                 ? "\(preset.displayName) is connected via 127.0.0.1:\(model.bridgePort). Double-click to open Lobby."
-                                : "Click to copy the ready-to-paste prompt for \(preset.displayName). Double-click to copy & open Connect."
+                                : (installed
+                                    ? "Click to copy prompt for \(preset.displayName). Double-click to copy & open \(preset.displayName)."
+                                    : "Click to copy the ready-to-paste prompt for \(preset.displayName). Double-click to copy & open Connect.")
                         ) {
                             selection = .guest(preset.screenName)
                             _ = model.selectConnectPreset(preset, copyToClipboard: true)
                         } double: {
                             selection = .guest(preset.screenName)
-                            _ = model.selectConnectPreset(preset, copyToClipboard: true)
                             if connected {
+                                _ = model.selectConnectPreset(preset, copyToClipboard: true)
                                 model.openLobby()
+                            } else if installed {
+                                model.copyAndOpenApp(for: preset)
                             } else {
+                                _ = model.selectConnectPreset(preset, copyToClipboard: true)
+                                openWindow(id: "connect")
+                            }
+                        }
+                        .contextMenu {
+                            Button("Copy Connect Prompt for \(preset.displayName)") {
+                                _ = model.selectConnectPreset(preset, copyToClipboard: true)
+                            }
+                            Button("Copy Context Handoff Packet") {
+                                _ = model.copyHandoffPacket(preset: preset)
+                            }
+                            Button("Copy 1-Line Command") {
+                                _ = model.copyOneLiner(preset: preset)
+                            }
+                            if installed {
+                                Button("Copy Prompt & Open \(preset.displayName)") {
+                                    model.copyAndOpenApp(for: preset)
+                                }
+                            }
+                            Divider()
+                            Button("Open Connect Window…") {
+                                _ = model.selectConnectPreset(preset, copyToClipboard: false)
                                 openWindow(id: "connect")
                             }
                         }

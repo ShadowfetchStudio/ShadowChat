@@ -153,6 +153,28 @@ final class AppModel: ObservableObject {
                 lines.append("• Connected apps: \(joinedGuests.joined(separator: ", "))")
             }
             postNotice(roomID: roomID, text: "Who is here\n" + lines.joined(separator: "\n"))
+        case .apps:
+            var lines: [String] = ["Multi-Program AI Hub Status (127.0.0.1:\(bridgePort))"]
+            lines.append("Built-in Local Adapters:")
+            for buddy in buddies {
+                let state = !buddy.enabled ? "off" : (buddy.online ? "online (●)" : "offline — \(buddy.reason)")
+                lines.append("  • \(buddy.id.screenName): \(state)")
+            }
+            if connectedGuests.isEmpty {
+                lines.append("Connected Bridge Programs: none yet (click Connect or type /connect)")
+            } else {
+                lines.append("Connected Bridge Programs:")
+                for guest in connectedGuests {
+                    let listenState = guest.isListening ? "listening on /wait" : "connected"
+                    lines.append("  • \(guest.screenName) (\(guest.program)) — room: \(guest.roomName), \(listenState)")
+                }
+            }
+            let installed = ConnectPreset.installedPresets().map(\.displayName)
+            if !installed.isEmpty {
+                lines.append("Installed AI Apps on this Mac: \(installed.joined(separator: ", "))")
+            }
+            lines.append("Role Mentions: @all · @coders · @thinkers · @bridge · @local")
+            postNotice(roomID: roomID, text: lines.joined(separator: "\n"))
         case .clear:
             clearRoomMessages(roomID: roomID)
             armRoom(roomID)
@@ -175,6 +197,48 @@ final class AppModel: ObservableObject {
             postNotice(roomID: roomID, text: "Opened Connect. Click an app's name, then paste (⌘V) into that app.")
         case .export:
             exportTranscript(roomID: roomID)
+        case .compare(let question):
+            let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                postNotice(roomID: roomID, text: "Usage: /compare <question> — asks @all (local adapters + connected bridge apps) to compare approaches in 3–5 concise bullets.")
+                return
+            }
+            armRoom(roomID)
+            sendHuman(
+                roomID: roomID,
+                plain: "@all [Multi-AI Compare] \(trimmed) — Give your distinct perspective in 3-5 concise bullets without repeating earlier speakers.",
+                rtf: nil
+            )
+        case .review(let focus):
+            let trimmed = focus.trimmingCharacters(in: .whitespacesAndNewlines)
+            let subject = trimmed.isEmpty ? "the current discussion and code in this room" : trimmed
+            armRoom(roomID)
+            sendHuman(
+                roomID: roomID,
+                plain: "@all [Multi-AI Review] Review \(subject). List: (1) highest-impact risks or bugs, (2) concrete improvements, and (3) what looks solid.",
+                rtf: nil
+            )
+        case .handoff(let rawArgs):
+            let trimmed = rawArgs.trimmingCharacters(in: .whitespacesAndNewlines)
+            var targetPreset = selectedConnectPreset
+            var note = trimmed
+            if !trimmed.isEmpty {
+                let parts = trimmed.split(maxSplits: 1, whereSeparator: { $0.isWhitespace })
+                if let first = parts.first {
+                    let candidate = String(first).trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+                    let matched = ConnectPreset.matching(candidate)
+                    if matched != .universal || candidate.lowercased() == "all" || candidate.lowercased() == "universal" {
+                        targetPreset = matched
+                        note = parts.count > 1 ? String(parts[1]) : ""
+                    }
+                }
+            }
+            _ = copyHandoffPacket(roomID: roomID, preset: targetPreset, note: note)
+            let roomName = room(roomID)?.name ?? "Lobby"
+            postNotice(
+                roomID: roomID,
+                text: "Copied Context Handoff Packet for \(targetPreset.displayName) (\(roomName) transcript + live Connect Prompt) to clipboard! Switch to \(targetPreset.displayName) and press ⌘V."
+            )
         case .unknown(let word):
             postNotice(roomID: roomID, text: "I don't know /\(word). Type /help to see what works.")
         }
@@ -604,6 +668,33 @@ final class AppModel: ObservableObject {
         }
     }
 
+    @discardableResult
+    func copyHandoffPacket(roomID: String? = nil, preset: ConnectPreset? = nil, note: String = "") -> String {
+        let targetPreset = preset ?? selectedConnectPreset
+        let targetRoom: Room?
+        if let roomID, let found = room(roomID) {
+            targetRoom = found
+        } else {
+            targetRoom = roomNamed(selectedConnectRoom) ?? rooms.first(where: { $0.kind == .lobby })
+        }
+        let roomName = targetRoom?.name ?? selectedConnectRoom
+        let roomMsgs = targetRoom.flatMap { messages[$0.id] } ?? []
+        let packet = ConnectPrompt.handoffPacket(
+            endpoint: currentEndpoint(),
+            occupantNames: occupantNames(),
+            preset: targetPreset,
+            roomName: roomName,
+            projectPath: targetRoom?.projectPath,
+            messages: roomMsgs,
+            note: note
+        )
+        let board = NSPasteboard.general
+        board.clearContents()
+        board.setString(packet, forType: .string)
+        connectBannerText = "Copied Handoff Packet (\(roomName) transcript + prompt) for \(targetPreset.displayName)! Paste (⌘V) into \(targetPreset.displayName)."
+        return packet
+    }
+
     func isGuestConnected(_ screenNameOrPreset: String) -> Bool {
         guard let canonical = BridgeNames.canonical(screenName: screenNameOrPreset, program: "") else { return false }
         return joinedGuests.contains { $0.caseInsensitiveCompare(canonical) == .orderedSame }
@@ -883,7 +974,7 @@ final class AppModel: ObservableObject {
         let roomName = BridgeRouter.firstNonEmpty(info["room"]) ?? "Lobby"
         let after = info["after"].flatMap { Int($0) }
         let rawTimeout = info["timeout"].flatMap { Int($0) } ?? 25
-        let timeout = min(max(rawTimeout, 0), 90)
+        let timeout = min(max(rawTimeout, 0), 300)
 
         guard let room = roomNamed(roomName) else {
             return .immediate(BridgeHTTPResponse(status: 404, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"unknown room\"}"))
@@ -1027,12 +1118,13 @@ final class AppModel: ObservableObject {
     }
 
     func routeBridge(_ request: BridgeHTTPRequest) -> BridgeHTTPResponse {
-        BridgeRouter.handle(request: request, expectedToken: bridgeToken) { action in
+        let format = request.query["format"]?.lowercased() ?? ""
+        return BridgeRouter.handle(request: request, expectedToken: bridgeToken) { action in
             switch action {
             case .join(let screenName, let program):
                 return self.registerGuest(screenName: screenName, program: program)
             case .transcript(let room):
-                return self.bridgeTranscript(roomName: room)
+                return self.bridgeTranscript(roomName: room, asJSON: format == "json")
             case .post(let screenName, let text, let room):
                 return self.postGuest(screenName: screenName, text: text, roomName: room)
             case .wait(let screenName, let room, let after, _):
@@ -1064,6 +1156,8 @@ final class AppModel: ObservableObject {
                 return self.bridgeStatus()
             case .prompt(let program, let room):
                 return self.bridgePrompt(program: program, roomName: room)
+            case .handoff(let program, let room, let note):
+                return self.bridgeHandoff(program: program, roomName: room, note: note)
             }
         }
     }
@@ -1102,11 +1196,33 @@ final class AppModel: ObservableObject {
         return BridgeHTTPResponse(status: 200, contentType: "application/json; charset=utf-8", body: "{\"ok\":true,\"screenName\":\"\(escaped)\"}")
     }
 
-    private func bridgeTranscript(roomName: String) -> BridgeHTTPResponse {
+    private func bridgeTranscript(roomName: String, asJSON: Bool = false) -> BridgeHTTPResponse {
         guard let room = roomNamed(roomName) else {
             return BridgeHTTPResponse(status: 404, contentType: "application/json; charset=utf-8", body: "{\"ok\":false,\"error\":\"unknown room\"}")
         }
         let roomMessages = messages[room.id] ?? []
+        if asJSON {
+            let items = roomMessages.suffix(40).map { msg -> [String: Any] in
+                [
+                    "id": msg.id,
+                    "senderName": msg.senderName,
+                    "body": msg.body,
+                    "status": msg.status.rawValue
+                ]
+            }
+            let payload: [String: Any] = [
+                "ok": true,
+                "room": room.name,
+                "seq": roomMessages.count,
+                "runState": (engines[room.id]?.phase ?? room.runState).rawValue,
+                "roundtable": room.roundtable,
+                "joinedGuests": joinedGuests,
+                "messages": items
+            ]
+            let data = (try? JSONSerialization.data(withJSONObject: payload)) ?? Data("{\"ok\":true}".utf8)
+            let body = String(data: data, encoding: .utf8) ?? "{\"ok\":true}"
+            return BridgeHTTPResponse(status: 200, contentType: "application/json; charset=utf-8", body: body)
+        }
         let lines = roomMessages.suffix(40).map { message -> String in
             let flat = message.body.replacingOccurrences(of: "\n", with: " ")
             let clipped = flat.count > 500 ? String(flat.prefix(500)) + "…" : flat
@@ -1173,6 +1289,23 @@ final class AppModel: ObservableObject {
             mode: .full
         )
         return BridgeHTTPResponse(status: 200, contentType: "text/plain; charset=utf-8", body: rendered + "\n")
+    }
+
+    private func bridgeHandoff(program: String, roomName: String, note: String) -> BridgeHTTPResponse {
+        let preset = ConnectPreset.matching(program)
+        let targetRoom = roomNamed(roomName) ?? rooms.first(where: { $0.kind == .lobby })
+        let safeRoom = targetRoom?.name ?? "Lobby"
+        let roomMsgs = targetRoom.flatMap { messages[$0.id] } ?? []
+        let packet = ConnectPrompt.handoffPacket(
+            endpoint: currentEndpoint(),
+            occupantNames: occupantNames(),
+            preset: preset,
+            roomName: safeRoom,
+            projectPath: targetRoom?.projectPath,
+            messages: roomMsgs,
+            note: note
+        )
+        return BridgeHTTPResponse(status: 200, contentType: "text/plain; charset=utf-8", body: packet + "\n")
     }
 
     private func planGuest(roomID: String, text: String) {

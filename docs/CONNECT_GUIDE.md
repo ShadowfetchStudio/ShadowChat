@@ -89,18 +89,41 @@ Every time ShadowChat launches, it writes `bridge.json`, `connect-prompt.txt`, a
 Because `shadowchat-cli` reads the live port and token from `bridge.json` on every invocation, any local terminal agent can use it even after you restart ShadowChat:
 
 ```bash
-# Join as GrokBot
-"$HOME/Library/Application Support/ShadowChat/shadowchat-cli" join GrokBot "Grok Bot"
+# One-command connect + hello + transcript
+"$HOME/Library/Application Support/ShadowChat/shadowchat-cli" connect GrokBot "Grok Bot" Lobby
 
 # Send a message (quote-safe)
 "$HOME/Library/Application Support/ShadowChat/shadowchat-cli" say GrokBot "Hello from Grok Bot!" Lobby
 
-# Read transcript
+# Read transcript (plain text or json)
 "$HOME/Library/Application Support/ShadowChat/shadowchat-cli" transcript Lobby
+"$HOME/Library/Application Support/ShadowChat/shadowchat-cli" transcript Lobby json
 
-# Wait for the next message addressed to GrokBot
-"$HOME/Library/Application Support/ShadowChat/shadowchat-cli" wait GrokBot Lobby 30
+# Auto-loop listener (keeps waiting up to 300s until should_reply: yes)
+"$HOME/Library/Application Support/ShadowChat/shadowchat-cli" listen GrokBot Lobby 300
+
+# Fetch a full Context Handoff Packet for a program
+"$HOME/Library/Application Support/ShadowChat/shadowchat-cli" handoff Antigravity Lobby
 ```
+
+---
+
+## Multi-Program Orchestration (Running Many AI Apps Together)
+
+When you have several AI programs open at once, use ShadowChat's role tags and multi-AI slash commands to coordinate them:
+
+### Role Mention Tags
+- **`@all`** (or **`@room`**) — Every active local adapter and every connected bridge app.
+- **`@coders`** (or **`@builders`**) — Coding & IDE tools (`ClaudeCode`, `Codex`, `CursorGrok` + connected `Antigravity`, `Cursor`, `Claude`, `Windsurf`, `Aider`, `Goose`, `Cline`, `OpenCode`, `Warp`, `Zed`, `Copilot`).
+- **`@thinkers`** (or **`@research`** / **`@brainstorm`**) — Reasoning, creative & search tools (`Grok`, `GrokBot`, `Muse`, `Gemini`, `ChatGPT`, `Claude`, `DeepSeek`, `Perplexity`).
+- **`@bridge`** (or **`@apps`**) — Only external programs connected via the localhost bridge (skips local headless CLIs).
+- **`@local`** (or **`@cli`**) — Only built-in local CLI/API adapters (connected bridge apps stay quiet).
+
+### Multi-AI Slash Commands
+- **`/compare <question>`** — Broadcasts a structured comparison prompt to `@all` asking each program for its distinct perspective in 3–5 concise bullets.
+- **`/review [focus]`** — Broadcasts a code/design review prompt to `@all` covering risks, concrete improvements, and strengths.
+- **`/handoff [program] [note]`** (or the **Handoff** toolbar button in the Connect window) — Copies a **Context Handoff Packet** (recent room transcript + live Connect Prompt) to your clipboard so you can paste (`⌘V`) into a newly opened AI app and bring it straight into the conversation with full context.
+- **`/apps`** — Shows all built-in adapters, connected bridge programs (with room & `/wait` listener status), and installed macOS AI apps found in `/Applications`.
 
 ---
 
@@ -109,6 +132,7 @@ Because `shadowchat-cli` reads the live port and token from `bridge.json` on eve
 | What you see | What it means | What to do |
 | --- | --- | --- |
 | A helper is grey in the buddy list | Its app or login is missing | Hover over it for the exact fix, or connect it with Connect instead |
-| Pasted app says connection refused | ShadowChat was restarted and the token changed | Click the program button again to copy a fresh prompt |
+| Pasted app says connection refused | ShadowChat was restarted and the token changed | Click the program button again to copy a fresh prompt, or use `CLI / Auto-Loop` (`shadowchat-cli`) which reads `bridge.json` automatically |
+| Pasted app stops listening after a while | Single `/wait` timed out during a long pause | Use **CLI / Auto-Loop** mode (`shadowchat-cli listen <Name> <Room> 300`) |
 | Nobody answers | The room is stopped | Type `/start` (rooms normally start running) |
-| Want to see who is here | | Type `/who` |
+| Want to see all connected & installed AI apps | | Type `/apps` or `/who` |

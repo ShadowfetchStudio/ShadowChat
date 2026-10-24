@@ -125,4 +125,12 @@ final class TurnPlannerTests: XCTestCase {
         let huge = String(repeating: "hello @Codex ", count: 200) + "@all"
         XCTAssertEqual(plan(text: huge, turnLimit: 12), ParticipantID.agentOrder)
     }
+
+    func testMultiProgramRoleMentions() {
+        XCTAssertEqual(plan(text: "@coders review this", turnLimit: 4), [.claudeCode, .codex, .cursorGrok])
+        XCTAssertEqual(plan(text: "@thinkers brainstorm", turnLimit: 4), [.grok])
+        XCTAssertEqual(plan(text: "@local check status", turnLimit: 4), ParticipantID.agentOrder)
+        XCTAssertEqual(plan(text: "@bridge only outside apps", roundtable: true, turnLimit: 4), [])
+        XCTAssertEqual(plan(text: "@bridge @Codex", roundtable: false, turnLimit: 4), [.codex])
+    }
 }
