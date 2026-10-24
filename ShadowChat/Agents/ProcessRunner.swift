@@ -35,12 +35,54 @@ final class TurnHandle: @unchecked Sendable {
     }
 }
 
+struct UTF8LineBuffer {
+    private var pending = Data()
+
+    mutating func append(_ chunk: Data) -> [String] {
+        guard !chunk.isEmpty else { return [] }
+        pending.append(chunk)
+        var lines: [String] = []
+        while let newline = pending.firstIndex(of: 0x0A) {
+            var line = Data(pending.prefix(upTo: newline))
+            pending.removeSubrange(..<pending.index(after: newline))
+            if line.last == 0x0D { line.removeLast() }
+            lines.append(String(decoding: line, as: UTF8.self))
+        }
+        return lines
+    }
+
+    mutating func finish() -> String? {
+        guard !pending.isEmpty else { return nil }
+        let text = String(decoding: pending, as: UTF8.self)
+        pending.removeAll()
+        return text
+    }
+}
+
+enum ProcessTree {
+    static func children(of pid: pid_t) -> [pid_t] {
+        guard pid > 1 else { return [] }
+        let needed = proc_listchildpids(pid, nil, 0)
+        let slots = max(8, needed > 0 ? Int(needed) / MemoryLayout<pid_t>.size + 4 : 32)
+        var buffer = [pid_t](repeating: 0, count: slots)
+        let used = buffer.withUnsafeMutableBytes { raw in
+            proc_listchildpids(pid, raw.baseAddress, Int32(raw.count))
+        }
+        guard used > 0 else { return [] }
+        let count = min(buffer.count, Int(used) / MemoryLayout<pid_t>.size)
+        return Array(buffer.prefix(count)).filter { $0 > 1 && $0 != pid }
+    }
+}
+
+@_silgen_name("proc_listchildpids")
+private func proc_listchildpids(_ ppid: Int32, _ buffer: UnsafeMutableRawPointer?, _ buffersize: Int32) -> Int32
+
 final class LiveProcess: @unchecked Sendable {
     private let process = Process()
     private let outPipe = Pipe()
     private let errPipe = Pipe()
     private let lock = NSLock()
-    private var buffer = ""
+    private var lines = UTF8LineBuffer()
     private var stderrData = Data()
     private var killed = false
     private var processGroup: pid_t = 0
@@ -52,17 +94,25 @@ final class LiveProcess: @unchecked Sendable {
         let pid = process.processIdentifier
         let group = processGroup
         lock.unlock()
-        guard running, pid > 0 else { return }
-        if group > 0 {
+        guard running, pid > 1 else { return }
+        killNow(pid: pid, group: group)
+        process.terminate()
+    }
+
+    private func killNow(pid: pid_t, group: pid_t, depth: Int = 0) {
+        guard depth < 6, pid > 1, pid != getpid() else { return }
+        if group > 1 {
             kill(-group, SIGTERM)
         }
-        process.terminate()
+        kill(pid, SIGTERM)
+        for child in ProcessTree.children(of: pid) {
+            killNow(pid: child, group: 0, depth: depth + 1)
+        }
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.6) {
-            if group > 0 {
-                kill(-group, SIGKILL)
-            }
-            if self.process.isRunning {
-                kill(pid, SIGKILL)
+            if group > 1 { kill(-group, SIGKILL) }
+            if kill(pid, 0) == 0 { kill(pid, SIGKILL) }
+            for child in ProcessTree.children(of: pid) where child > 1 {
+                kill(child, SIGKILL)
             }
         }
     }
@@ -85,15 +135,9 @@ final class LiveProcess: @unchecked Sendable {
             let data = handle.availableData
             guard let self, !data.isEmpty else { return }
             self.lock.lock()
-            self.buffer.append(String(decoding: data, as: UTF8.self))
-            var lines: [String] = []
-            while let range = self.buffer.range(of: "\n") {
-                let line = String(self.buffer[..<range.lowerBound])
-                self.buffer.removeSubrange(..<range.upperBound)
-                lines.append(line)
-            }
+            let parsed = self.lines.append(data)
             self.lock.unlock()
-            for line in lines {
+            for line in parsed where !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 onLine(line)
             }
         }
@@ -114,23 +158,24 @@ final class LiveProcess: @unchecked Sendable {
                 errHandle.readabilityHandler = nil
                 let rest = outHandle.readDataToEndOfFile()
                 let errRest = errHandle.readDataToEndOfFile()
-                var leftover = ""
+                var extra: [String] = []
                 var stderr = ""
                 var killed = false
                 if let self {
                     self.lock.lock()
                     if !rest.isEmpty {
-                        self.buffer.append(String(decoding: rest, as: UTF8.self))
+                        extra.append(contentsOf: self.lines.append(rest))
+                    }
+                    if let tail = self.lines.finish() {
+                        extra.append(tail)
                     }
                     self.stderrData.append(errRest)
-                    leftover = self.buffer.trimmingCharacters(in: .whitespacesAndNewlines)
-                    self.buffer = ""
                     stderr = String(decoding: self.stderrData, as: UTF8.self)
                     killed = self.killed
                     self.lock.unlock()
                 }
-                if !leftover.isEmpty {
-                    onLine(leftover)
+                for line in extra where !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    onLine(line)
                 }
                 let clipped = stderr.count > 2_000 ? String(stderr.suffix(2_000)) : stderr
                 continuation.resume(returning: CommandResult(exitCode: proc.terminationStatus, stderr: clipped, cancelled: killed))
@@ -142,6 +187,14 @@ final class LiveProcess: @unchecked Sendable {
                     lock.lock()
                     processGroup = pid
                     lock.unlock()
+                }
+                lock.lock()
+                let shouldKill = killed
+                let group = processGroup
+                lock.unlock()
+                if shouldKill {
+                    killNow(pid: pid, group: group)
+                    process.terminate()
                 }
             } catch {
                 outHandle.readabilityHandler = nil

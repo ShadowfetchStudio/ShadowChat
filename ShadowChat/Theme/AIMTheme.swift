@@ -112,6 +112,8 @@ final class TitlebarHider: NSView {
         apply()
     }
 
+    private var placed = false
+
     func apply() {
         guard let window else { return }
         window.title = title
@@ -128,6 +130,29 @@ final class TitlebarHider: NSView {
             button.isHidden = true
             button.alphaValue = 0
         }
+        placeIfNeeded(window)
+    }
+
+    private func placeIfNeeded(_ window: NSWindow) {
+        guard !placed else { return }
+        guard let visible = (window.screen ?? NSScreen.main)?.visibleFrame else { return }
+        var frame = window.frame
+        guard frame.width > 40, frame.height > 40 else { return }
+        if frame.width < 280 { frame.size.width = min(320, visible.width - 16) }
+        if frame.height < 420 { frame.size.height = min(560, visible.height - 16) }
+        if frame.minX < visible.minX { frame.origin.x = visible.minX + 8 }
+        if frame.maxX > visible.maxX { frame.origin.x = visible.maxX - frame.width - 8 }
+        if frame.minY < visible.minY { frame.origin.y = visible.minY + 8 }
+        if frame.maxY > visible.maxY { frame.origin.y = visible.maxY - frame.height - 8 }
+        let stacked = NSApp.windows.contains { other in
+            other !== window && abs(other.frame.origin.x - frame.origin.x) < 8 && abs(other.frame.origin.y - frame.origin.y) < 8
+        }
+        if stacked {
+            frame.origin.x = min(frame.origin.x + 28, visible.maxX - frame.width - 8)
+            frame.origin.y = max(frame.origin.y - 28, visible.minY + 8)
+        }
+        placed = true
+        window.setFrame(frame, display: false)
     }
 }
 
@@ -147,26 +172,49 @@ struct ClassicTitleBar: View {
                     .font(AIMTheme.font(size: 12, bold: true))
                     .foregroundStyle(.white)
                     .lineLimit(1)
+                    .truncationMode(.middle)
                 Spacer(minLength: 4)
-                captionGlyph("_") { NSApp.keyWindow?.miniaturize(nil) }
-                captionGlyph("□") { NSApp.keyWindow?.zoom(nil) }
-                captionGlyph("×") { NSApp.keyWindow?.performClose(nil) }
+                WindowGlyphButton(glyph: "_") { $0.miniaturize(nil) }.frame(width: 18, height: 16)
+                WindowGlyphButton(glyph: "□") { $0.zoom(nil) }.frame(width: 18, height: 16)
+                WindowGlyphButton(glyph: "×") { $0.performClose(nil) }.frame(width: 18, height: 16)
             }
             .padding(.horizontal, 6)
         }
         .frame(height: 26)
     }
 
-    private func captionGlyph(_ glyph: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(glyph)
-                .font(AIMTheme.font(size: 11, bold: true))
-                .foregroundStyle(.black)
-                .frame(width: 16, height: 14)
-                .background(AIMTheme.client)
-                .overlay(BevelOverlay(raised: true))
+}
+
+struct WindowGlyphButton: NSViewRepresentable {
+    var glyph: String
+    var action: (NSWindow) -> Void
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton(title: glyph, target: context.coordinator, action: #selector(Coordinator.fire(_:)))
+        button.isBordered = true
+        button.bezelStyle = .shadowlessSquare
+        button.font = AIMTheme.nsFont(size: 11, bold: true)
+        button.setButtonType(.momentaryPushIn)
+        button.controlSize = .small
+        context.coordinator.action = action
+        return button
+    }
+
+    func updateNSView(_ nsView: NSButton, context: Context) {
+        nsView.title = glyph
+        context.coordinator.action = action
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(action: action) }
+
+    final class Coordinator: NSObject {
+        var action: (NSWindow) -> Void
+        init(action: @escaping (NSWindow) -> Void) { self.action = action }
+        @objc func fire(_ sender: NSButton) {
+            guard let window = sender.window else { return }
+            window.makeKeyAndOrderFront(nil)
+            action(window)
         }
-        .buttonStyle(.plain)
     }
 }
 

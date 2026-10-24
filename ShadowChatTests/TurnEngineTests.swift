@@ -41,6 +41,19 @@ final class TurnEngineTests: XCTestCase {
         XCTAssertNil(engine.dequeueIfIdle())
     }
 
+    func testSecondStartDoesNotQueueASecondRound() {
+        var engine = TurnEngine()
+        let roster = ParticipantID.agentOrder
+        engine.armIfIdle(roster)
+        engine.armIfIdle(roster)
+        XCTAssertEqual(engine.queue, roster)
+        XCTAssertEqual(engine.phase, .running)
+        XCTAssertEqual(engine.dequeueIfIdle(), .claudeCode)
+        engine.armIfIdle([.grok])
+        XCTAssertEqual(engine.queue, [.codex, .grok, .cursorGrok])
+        XCTAssertEqual(engine.active, .claudeCode)
+    }
+
     func testStopWithNoActiveDoesNotPretendATurnWasCancelled() {
         var engine = TurnEngine()
         engine.start()

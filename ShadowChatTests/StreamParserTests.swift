@@ -66,4 +66,44 @@ final class StreamParserTests: XCTestCase {
         XCTAssertEqual(state.responseID, "resp_9")
         XCTAssertEqual(state.text, "Yo")
     }
+
+    func testSplitUTF8CodePointStaysOneLine() {
+        var buffer = UTF8LineBuffer()
+        let euro = Data("€".utf8)
+        XCTAssertEqual(buffer.append(Data(euro.prefix(2))), [])
+        let rest = euro.dropFirst(2) + Data(" line\nnext".utf8)
+        XCTAssertEqual(buffer.append(Data(rest)), ["€ line"])
+        XCTAssertEqual(buffer.finish(), "next")
+    }
+
+    func testTruncatedChunksDoNotInventText() {
+        var claude = ClaudeStreamParser()
+        var codex = CodexStreamParser()
+        var cursor = CursorStreamParser()
+        var grok = GrokParseState()
+        let chunks = [
+            "{",
+            "{\"type\":\"stream_event\"",
+            "{\"type\":\"agent_message_content_delta\",\"delta\":",
+            "data: {\"type\":\"response.output_text.delta\",\"delta\":",
+            "{\"type\":\"assistant\",\"message\":{\"content\":[",
+            "not json",
+            ""
+        ]
+        for _ in 0..<50 {
+            for chunk in chunks {
+                _ = claude.consume(chunk)
+                _ = codex.consume(chunk)
+                _ = cursor.consume(chunk)
+                _ = GrokSSE.consume(chunk, state: &grok)
+            }
+        }
+        XCTAssertEqual(claude.text, "")
+        XCTAssertEqual(codex.text, "")
+        XCTAssertEqual(cursor.text, "")
+        XCTAssertEqual(grok.text, "")
+        XCTAssertNil(claude.sessionID)
+        XCTAssertEqual(claude.consume(#"{"type":"result","result":"kept","session_id":"s1"}"#), "kept")
+        XCTAssertEqual(claude.sessionID, "s1")
+    }
 }

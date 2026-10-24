@@ -103,6 +103,10 @@ final class TurnPlannerTests: XCTestCase {
         XCTAssertEqual(plan(text: "hey @ClaudeCode, and (@Grok)!"), [.claudeCode, .grok])
         XCTAssertEqual(plan(text: "mail a@Codex.com stays put"), [])
         XCTAssertEqual(plan(text: "@CursorGrok please"), [.cursorGrok])
+        XCTAssertEqual(plan(text: "café@Codex stays put"), [])
+        XCTAssertEqual(plan(text: "名字@all stays put"), [])
+        XCTAssertEqual(plan(text: "@all", turnLimit: 1), [.claudeCode])
+        XCTAssertEqual(plan(text: "@room", turnLimit: 12), ParticipantID.agentOrder)
     }
 
     func testStartReplaysOnlyAnUnansweredHumanMessage() {
@@ -115,6 +119,10 @@ final class TurnPlannerTests: XCTestCase {
 
     func testTurnLimitClamps() {
         XCTAssertEqual(plan(text: "@all", turnLimit: 0).count, 1)
+        XCTAssertEqual(plan(text: "@all", turnLimit: 1), [.claudeCode])
         XCTAssertEqual(plan(text: "@all", turnLimit: 12), ParticipantID.agentOrder)
+        XCTAssertEqual(plan(text: ""), [])
+        let huge = String(repeating: "hello @Codex ", count: 200) + "@all"
+        XCTAssertEqual(plan(text: huge, turnLimit: 12), ParticipantID.agentOrder)
     }
 }

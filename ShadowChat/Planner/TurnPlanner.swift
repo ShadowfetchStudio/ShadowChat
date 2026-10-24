@@ -67,13 +67,13 @@ enum TurnPlanner {
         var agents: [ParticipantID] = []
         for match in matches {
             guard match.numberOfRanges > 1 else { continue }
-            if match.range.location > 0 {
-                let previous = ns.substring(with: NSRange(location: match.range.location - 1, length: 1))
-                if previous.range(of: "[A-Za-z0-9_]", options: .regularExpression) != nil {
-                    continue
-                }
+            guard let tokenRange = Range(match.range(at: 1), in: text),
+                  let fullRange = Range(match.range, in: text) else { continue }
+            if let previous = text[..<fullRange.lowerBound].last,
+               previous.isLetter || previous.isNumber || previous == "_" {
+                continue
             }
-            let token = ns.substring(with: match.range(at: 1))
+            let token = String(text[tokenRange])
             switch target(for: token) {
             case .everyone:
                 everyone = true

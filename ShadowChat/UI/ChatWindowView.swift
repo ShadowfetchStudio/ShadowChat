@@ -47,6 +47,7 @@ struct ChatWindowView: View {
     }
 
     private var menuBar: some View {
+        VStack(spacing: 0) {
         HStack(spacing: 4) {
             ClassicMenuButton(title: "File", items: [
                 ("Close", "w", { NSApp.keyWindow?.performClose(nil) }),
@@ -61,14 +62,18 @@ struct ChatWindowView: View {
             ClassicMenuButton(title: "Insert", items: mentionItems + smileyItems)
             ClassicMenuButton(title: "People", items: peopleItems)
             Spacer(minLength: 8)
-            Text(model.statusLine(roomID: roomID))
-                .font(AIMTheme.font(size: 10))
-                .foregroundStyle(.black)
-                .lineLimit(1)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
         .frame(height: 26)
+        Text(model.statusLine(roomID: roomID))
+            .font(AIMTheme.font(size: 10))
+            .foregroundStyle(.black)
+            .lineLimit(2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 8)
+            .padding(.bottom, 3)
+        }
         .background(AIMTheme.client)
     }
 

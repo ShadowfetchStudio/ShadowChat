@@ -124,6 +124,13 @@ final class Database {
     }
 
     func insertMessage(_ message: ChatMessage) throws {
+        let found: [Int] = try query(
+            "SELECT 1 FROM rooms WHERE id = ?",
+            bindings: [.text(message.roomID)]
+        ) { _ in 1 }
+        guard found.first == 1 else {
+            throw DatabaseError.exec("That room does not exist.")
+        }
         try exec(
             """
             INSERT INTO messages (id, room_id, sender, sender_name, body, rtf, status, created_at)
@@ -297,10 +304,10 @@ final class Database {
             let i = Int32(index + 1)
             switch binding {
             case .text(let value):
-                _ = value.withCString { sqlite3_bind_text(stmt, i, $0, -1, transient) }
+                bindText(stmt, i, value)
             case .optional(let value):
                 if let value {
-                    _ = value.withCString { sqlite3_bind_text(stmt, i, $0, -1, transient) }
+                    bindText(stmt, i, value)
                 } else {
                     sqlite3_bind_null(stmt, i)
                 }
@@ -321,9 +328,24 @@ final class Database {
         return try body(stmt, db)
     }
 
+    private func bindText(_ stmt: OpaquePointer, _ index: Int32, _ value: String) {
+        let data = Data(value.utf8)
+        if data.isEmpty {
+            sqlite3_bind_text(stmt, index, "", 0, transient)
+            return
+        }
+        data.withUnsafeBytes { raw in
+            let pointer = raw.bindMemory(to: CChar.self).baseAddress
+            sqlite3_bind_text(stmt, index, pointer, Int32(data.count), transient)
+        }
+    }
+
     private func columnText(_ stmt: OpaquePointer, _ index: Int32) -> String {
-        guard let c = sqlite3_column_text(stmt, index) else { return "" }
-        return String(cString: c)
+        guard let bytes = sqlite3_column_text(stmt, index) else { return "" }
+        let count = Int(sqlite3_column_bytes(stmt, index))
+        guard count > 0 else { return "" }
+        let data = Data(bytes: bytes, count: count)
+        return String(data: data, encoding: .utf8) ?? ""
     }
 
     private func columnOptionalText(_ stmt: OpaquePointer, _ index: Int32) -> String? {

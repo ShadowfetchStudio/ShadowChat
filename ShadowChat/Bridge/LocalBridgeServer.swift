@@ -137,6 +137,14 @@ enum BridgeNames {
         guard !text.isEmpty else { return nil }
         return String(text.prefix(24))
     }
+    static func safeRoomName(_ name: String) -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? "Lobby" : trimmed
+        if value.contains("/") || value.contains("\\") || value.contains("..") { return nil }
+        if value.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) { return nil }
+        return value
+    }
+
     static func cleanText(_ text: String) -> String {
         var output = ""
         for scalar in text.unicodeScalars where scalar == "\n" || scalar == "\t" || !CharacterSet.controlCharacters.contains(scalar) {
@@ -156,8 +164,7 @@ enum BridgeInbox {
         return diff == 0
     }
     static func insert(database: Database, rooms: [Room], screenName: String, text: String, roomName: String) throws -> ChatMessage {
-        let wanted = roomName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let name = wanted.isEmpty ? "Lobby" : wanted
+        guard let name = BridgeNames.safeRoomName(roomName) else { throw BridgeFailure.unknownRoom }
         guard let room = rooms.first(where: { $0.name.compare(name, options: .caseInsensitive) == .orderedSame }) else { throw BridgeFailure.unknownRoom }
         guard let who = BridgeNames.canonical(screenName: screenName, program: "") else { throw BridgeFailure.badName }
         let body = BridgeNames.cleanText(text)
@@ -244,7 +251,7 @@ final class LocalBridgeServer {
         guard inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) == 1 else { close(fd); throw BridgeFailure.bind("loopback") }
         let bound = withUnsafePointer(to: &addr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }
         guard bound == 0 else { let message = String(cString: strerror(errno)); close(fd); throw BridgeFailure.bind(message) }
-        guard listen(fd, 16) == 0 else { close(fd); throw BridgeFailure.bind("listen") }
+        guard listen(fd, 128) == 0 else { close(fd); throw BridgeFailure.bind("listen") }
         var got = sockaddr_in()
         var length = socklen_t(MemoryLayout<sockaddr_in>.size)
         let named = withUnsafeMutablePointer(to: &got) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.getsockname(fd, $0, &length) } }
@@ -265,11 +272,19 @@ final class LocalBridgeServer {
     }
     func stop() { source?.cancel(); source = nil; listenFD = -1 }
     private func acceptPending() {
+        var clients: [Int32] = []
         while listenFD >= 0 {
             let client = Darwin.accept(listenFD, nil, nil)
-            if client < 0 { return }
+            if client < 0 { break }
+            clients.append(client)
+        }
+        for client in clients {
             var yes: Int32 = 1
             setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &yes, socklen_t(MemoryLayout<Int32>.size))
+            let flags = fcntl(client, F_GETFL)
+            if flags >= 0 {
+                _ = fcntl(client, F_SETFL, flags & ~O_NONBLOCK)
+            }
             var timeout = timeval(tv_sec: 2, tv_usec: 0)
             setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
             serve(client)

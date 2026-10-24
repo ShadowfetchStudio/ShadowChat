@@ -66,6 +66,34 @@ final class DatabaseTests: XCTestCase {
         XCTAssertEqual(try database.enabledParticipants()[.codex], true)
     }
 
+    func testEmbeddedNullAndMissingRoom() throws {
+        let lobby = try database.ensureLobby()
+        let weird = ChatMessage(
+            id: UUID().uuidString,
+            roomID: lobby.id,
+            sender: .me,
+            senderName: "Me",
+            body: "a\u{0}b\nline",
+            rtf: nil,
+            status: .complete,
+            createdAt: Date()
+        )
+        try database.insertMessage(weird)
+        XCTAssertEqual(try database.messages(roomID: lobby.id)[0].body, "a\u{0}b\nline")
+
+        let missing = ChatMessage(
+            id: UUID().uuidString,
+            roomID: "missing-room",
+            sender: .me,
+            senderName: "Me",
+            body: "nope",
+            rtf: nil,
+            status: .complete,
+            createdAt: Date()
+        )
+        XCTAssertThrowsError(try database.insertMessage(missing))
+    }
+
     func testProjectRoomFileChangesStayOffUntilSaved() throws {
         var room = Room(
             id: UUID().uuidString,
@@ -89,5 +117,48 @@ final class DatabaseTests: XCTestCase {
         XCTAssertEqual(loaded?.allowFileChanges, true)
         XCTAssertEqual(loaded?.worktreePath, "/tmp/worktree")
         XCTAssertEqual(loaded?.runState, .paused)
+    }
+
+    func testManyMessagesReopenAndConcurrentWrites() throws {
+        let lobby = try database.ensureLobby()
+        for index in 0..<300 {
+            let message = ChatMessage(
+                id: "m\(index)",
+                roomID: lobby.id,
+                sender: .me,
+                senderName: "Me",
+                body: "line \(index) " + String(repeating: "x", count: 40),
+                rtf: nil,
+                status: .complete,
+                createdAt: Date(timeIntervalSince1970: Double(index))
+            )
+            try database.insertMessage(message)
+        }
+        let path = directory.appendingPathComponent("test.sqlite").path
+        database = nil
+        let reopened = try Database(path: path)
+        let loaded = try reopened.messages(roomID: lobby.id)
+        XCTAssertEqual(loaded.count, 300)
+        XCTAssertEqual(loaded.last?.body.hasPrefix("line 299"), true)
+
+        let group = DispatchGroup()
+        let queue = DispatchQueue(label: "shadowchat-db-stress", attributes: .concurrent)
+        for index in 0..<120 {
+            queue.async(group: group) {
+                let message = ChatMessage(
+                    id: "c\(index)",
+                    roomID: lobby.id,
+                    sender: .codex,
+                    senderName: "Codex",
+                    body: "concurrent \(index)",
+                    rtf: nil,
+                    status: .complete,
+                    createdAt: Date()
+                )
+                try? reopened.insertMessage(message)
+            }
+        }
+        group.wait()
+        XCTAssertEqual(try reopened.messages(roomID: lobby.id).count, 420)
     }
 }

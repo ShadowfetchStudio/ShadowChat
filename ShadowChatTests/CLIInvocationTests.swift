@@ -1,3 +1,4 @@
+import Security
 import XCTest
 @testable import ShadowChat
 
@@ -126,6 +127,14 @@ final class CLIInvocationTests: XCTestCase {
         XCTAssertEqual(allowed.cwd, hidden)
         XCTAssertEqual(KeychainStore.service, "com.shadowfetch.shadowchat")
         XCTAssertEqual(KeychainStore.account, "xai-api-key")
+        let query = KeychainStore.loadQuery()
+        XCTAssertEqual(query[kSecAttrService as String] as? String, KeychainStore.service)
+        XCTAssertEqual(query[kSecAttrAccount as String] as? String, KeychainStore.account)
+        XCTAssertNil(query[kSecValueData as String])
+        let fake = Data("not-a-real-key".utf8)
+        let save = KeychainStore.saveQuery(secret: fake)
+        XCTAssertEqual(save[kSecValueData as String] as? Data, fake)
+        XCTAssertEqual(save[kSecAttrService as String] as? String, KeychainStore.service)
         XCTAssertEqual(
             WorktreeManager.addArguments(repo: "/tmp/repo", destination: "/tmp/work"),
             ["-C", "/tmp/repo", "worktree", "add", "--detach", "/tmp/work", "HEAD"]

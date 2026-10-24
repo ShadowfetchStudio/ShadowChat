@@ -21,14 +21,28 @@ enum KeychainStore {
         return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    static func load() -> String? {
-        let query: [String: Any] = [
+    static func loadQuery() -> [String: Any] {
+        [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
+    }
+
+    static func saveQuery(secret: Data) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecValueData as String: secret,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+    }
+
+    static func load() -> String? {
+        let query = loadQuery()
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         guard status == errSecSuccess, let data = item as? Data else { return nil }
@@ -37,13 +51,7 @@ enum KeychainStore {
 
     static func save(_ secret: String) throws {
         delete()
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecValueData as String: Data(secret.utf8),
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
-        ]
+        let query = saveQuery(secret: Data(secret.utf8))
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else { throw KeychainError.status(status) }
     }

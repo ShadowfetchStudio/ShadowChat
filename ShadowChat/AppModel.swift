@@ -166,10 +166,11 @@ final class AppModel: ObservableObject {
 
     func start(roomID: String) {
         var engine = engines[roomID] ?? TurnEngine()
-        let idle = engine.active == nil && engine.queue.isEmpty
-        engine.start()
-        if idle, let text = TurnPlanner.unansweredHumanText(in: messages[roomID] ?? []), let room = room(roomID) {
-            let plan = TurnPlanner.plan(
+        let plan: [ParticipantID]
+        if engine.active == nil, engine.queue.isEmpty,
+           let text = TurnPlanner.unansweredHumanText(in: messages[roomID] ?? []),
+           let room = room(roomID) {
+            plan = TurnPlanner.plan(
                 TurnPlan(
                     sender: .me,
                     text: text,
@@ -179,8 +180,10 @@ final class AppModel: ObservableObject {
                     roster: buddies
                 )
             )
-            engine.enqueue(plan)
+        } else {
+            plan = []
         }
+        engine.armIfIdle(plan)
         engines[roomID] = engine
         if var room = room(roomID) {
             room.runState = .running
@@ -506,12 +509,12 @@ final class AppModel: ObservableObject {
 
     private func directory(for room: Room) -> (cwd: String, writable: Bool) {
         let worktree = room.worktreePath
-        let exists = worktree.map { FileManager.default.fileExists(atPath: $0) } ?? false
+        let approved = worktree.map { WorktreeManager.isApprovedWorktree($0) } ?? false
         return PermissionGate.directory(
             allowFileChanges: room.allowFileChanges,
             projectPath: room.projectPath,
             worktreePath: worktree,
-            worktreeExists: exists,
+            worktreeExists: approved,
             scratch: WorktreeManager.scratchDirectory()
         )
     }
@@ -632,8 +635,7 @@ final class AppModel: ObservableObject {
     }
 
     private func roomNamed(_ name: String) -> Room? {
-        let wanted = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let target = wanted.isEmpty ? "Lobby" : wanted
+        guard let target = BridgeNames.safeRoomName(name) else { return nil }
         return rooms.first { $0.name.compare(target, options: .caseInsensitive) == .orderedSame }
     }
 

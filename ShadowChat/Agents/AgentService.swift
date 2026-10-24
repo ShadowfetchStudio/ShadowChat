@@ -199,7 +199,7 @@ enum AgentService {
                 onText(text)
             }
             if let error = state.error {
-                throw AgentFailure.failed(error)
+                throw AgentFailure.failed(Redactor.scrub(error))
             }
         }
         return AgentTurnOutcome(text: state.text, sessionID: state.responseID ?? previous)

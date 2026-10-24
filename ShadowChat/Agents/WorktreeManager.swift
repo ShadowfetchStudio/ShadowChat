@@ -40,6 +40,18 @@ enum WorktreeManager {
         return filtered.isEmpty ? "room" : filtered
     }
 
+    static func isInsideManagedRoot(_ path: String, root: URL? = nil) -> Bool {
+        let rootURL = worktreeRoot(root).resolvingSymlinksInPath().standardizedFileURL
+        let candidate = URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL
+        let prefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+        return candidate.path.hasPrefix(prefix)
+    }
+
+    static func isApprovedWorktree(_ path: String, root: URL? = nil) -> Bool {
+        guard isInsideManagedRoot(path, root: root) else { return false }
+        return isGitRepo(path)
+    }
+
     static func isGitRepo(_ path: String) -> Bool {
         let result = runGit(revParseArguments(path))
         return result.status == 0

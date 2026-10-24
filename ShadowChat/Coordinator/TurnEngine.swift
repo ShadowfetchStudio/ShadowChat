@@ -13,6 +13,15 @@ struct TurnEngine: Equatable {
         cancelCurrent = false
     }
 
+    /// A second Start while a round is already queued must not append that round again.
+    mutating func armIfIdle(_ plan: [ParticipantID]) {
+        let idle = active == nil && queue.isEmpty
+        start()
+        if idle {
+            enqueue(plan)
+        }
+    }
+
     mutating func pause() {
         guard phase == .running else { return }
         phase = .paused

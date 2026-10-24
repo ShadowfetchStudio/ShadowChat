@@ -53,6 +53,17 @@ final class SupportTests: XCTestCase {
         XCTAssertFalse(rendered.string.contains("bubble"))
     }
 
+    func testStopBeforeLaunchKillsTheProcess() async {
+        let process = LiveProcess()
+        process.terminate()
+        let started = Date()
+        let result = await process.run(
+            CLIInvocation(executable: "/bin/sleep", arguments: ["3"], cwd: NSTemporaryDirectory())
+        ) { _ in }
+        XCTAssertTrue(result.cancelled)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 1.5)
+    }
+
     func testWorktreePathAndGitRepo() throws {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("shadowchat-wt-\(UUID().uuidString)", isDirectory: true)
         let repo = root.appendingPathComponent("repo", isDirectory: true)
@@ -66,6 +77,29 @@ final class SupportTests: XCTestCase {
         let again = try WorktreeManager.ensureWorktree(repo: repo.path, roomID: "Room 1", root: root)
         XCTAssertEqual(again, created)
         XCTAssertFalse(WorktreeManager.isGitRepo(root.path))
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    func testWorktreeRejectsPathsOutsideSupport() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("shadowchat-wt-guard-\(UUID().uuidString)", isDirectory: true)
+        let repo = root.appendingPathComponent("repo", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        XCTAssertEqual(WorktreeManager.runGit(["init", repo.path]).status, 0)
+        XCTAssertEqual(WorktreeManager.runGit(["-C", repo.path, "-c", "user.email=shadowchat@example.com", "-c", "user.name=ShadowChat Tests", "commit", "--allow-empty", "-m", "init"]).status, 0)
+        let created = try WorktreeManager.ensureWorktree(repo: repo.path, roomID: "../../tmp", root: root)
+        XCTAssertTrue(WorktreeManager.isApprovedWorktree(created, root: root))
+        XCTAssertFalse(created.contains(".."))
+        let outside = root.appendingPathComponent("outside-repo", isDirectory: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        XCTAssertFalse(WorktreeManager.isApprovedWorktree(outside.path, root: root))
+        XCTAssertFalse(WorktreeManager.isInsideManagedRoot(root.appendingPathComponent("worktrees/../outside-repo").path, root: root))
+        try FileManager.default.createDirectory(at: WorktreeManager.worktreeRoot(root), withIntermediateDirectories: true)
+        let link = WorktreeManager.worktreeRoot(root).appendingPathComponent("escape")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: repo)
+        XCTAssertFalse(WorktreeManager.isApprovedWorktree(link.path, root: root))
+        let evil = "HEAD; rm -rf /"
+        let args = WorktreeManager.addArguments(repo: repo.path, destination: WorktreeManager.worktreeURL(roomID: evil, root: root).path)
+        XCTAssertFalse(args.contains { $0.contains(";") || $0.contains(evil) })
         try? FileManager.default.removeItem(at: root)
     }
 }
