@@ -314,6 +314,8 @@ The CLI working directory is that worktree, and the prompt names that path. The 
 
 `ShadowChatTests` locks the turn planner, pause/stop queue behavior, CLI argument lists, stream parsers, SQLite persistence, worktree creation, and the localhost connect bridge (slash commands, transcript export, tailored presets for Grok Bot, Muse, Claude, Codex, Antigravity, Cursor, Gemini, ChatGPT; `/join`, `/transcript`, `/message`, `/say`, `/wait` live wakeup, `/status`, `/prompt`, CORS `OPTIONS`, quote-safe plain-text bodies, `should_reply` loop prevention, refused tokens, and concurrent loopback stress tests).
 
+Like this project? You can [buy me a coffee](https://www.buymeacoffee.com/shadowfetcu).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
